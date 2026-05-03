@@ -1,0 +1,176 @@
+<%- include("partials/header", { title, active, mode, lastFetched }) %>
+
+<main class="container mx-auto px-6 py-8 max-w-7xl">
+  <div class="mb-6">
+    <h1 class="page-title">Portfolio</h1>
+    <p class="page-sub">Product counts, price distribution, and the most expensive products per competitor.</p>
+  </div>
+
+  <!-- Filter bar -->
+  <section class="card card-pad mb-6">
+    <form method="get" action="/portfolio" class="filterbar" id="filter-form">
+      <span class="text-xs uppercase tracking-wider text-ink-mute font-medium mr-2">Size</span>
+      <% const sizeOpts = [{key:"all",label:"All sizes"}, {key:"90x200",label:"90×200"}, {key:"160x200",label:"160×200"}, {key:"180x200",label:"180×200"}]; %>
+      <% for (const opt of sizeOpts) { %>
+        <label class="chip <%= size === opt.key ? 'active' : '' %>">
+          <input type="radio" name="size" value="<%= opt.key %>" class="hidden" <%= size === opt.key ? 'checked' : '' %> onchange="document.getElementById('filter-form').submit()" />
+          <%= opt.label %>
+        </label>
+      <% } %>
+    </form>
+  </section>
+
+  <!-- Charts row -->
+  <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <div class="card">
+      <div class="card-pad border-b border-line">
+        <h3>Products per segment</h3>
+        <p class="text-xs text-ink-mute mt-1">Stacked by competitor</p>
+      </div>
+      <div class="card-pad" style="height: 320px;">
+        <canvas id="chart-segments"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-pad border-b border-line">
+        <h3>Price distribution</h3>
+        <p class="text-xs text-ink-mute mt-1">2 500 Kč buckets, count of products</p>
+      </div>
+      <div class="card-pad" style="height: 320px;">
+        <canvas id="chart-histogram"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- Top expensive -->
+  <section class="card" x-data="{ tab: 'prospanek' }">
+    <div class="card-pad border-b border-line">
+      <h3>Top 10 most expensive products</h3>
+      <p class="text-xs text-ink-mute mt-1"><%= size === "all" ? "All sizes" : "Size " + size %></p>
+    </div>
+    <div class="px-6 pt-2">
+      <div class="tablist">
+        <% for (const c of competitors) { %>
+          <button class="tab" :class="tab === '<%= c %>' ? 'active' : ''" @click="tab = '<%= c %>'"><%= competitorLabels[c] || c %></button>
+        <% } %>
+      </div>
+    </div>
+    <% for (const c of competitors) { %>
+      <div x-show="tab === '<%= c %>'" x-cloak>
+        <% if (!top[c] || top[c].length === 0) { %>
+          <div class="empty"><p>No products tracked for this competitor yet.</p></div>
+        <% } else { %>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="w-10">#</th>
+                <th>Product</th>
+                <th>Size</th>
+                <th>Subcategory</th>
+                <th class="num">Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% top[c].forEach((p, idx) => { %>
+                <tr class="<%= c === 'prospanek' ? 'us-accent' : '' %>">
+                  <td class="text-ink-mute"><%= idx + 1 %></td>
+                  <td>
+                    <% if (p.source_url) { %>
+                      <a href="<%= p.source_url %>" target="_blank" rel="noopener" class="font-medium"><%= p.name || "(no name)" %></a>
+                    <% } else { %>
+                      <span class="font-medium"><%= p.name || "(no name)" %></span>
+                    <% } %>
+                  </td>
+                  <td class="text-ink-soft"><%= p.size %></td>
+                  <td class="text-ink-soft"><%= p.subcategory || "—" %></td>
+                  <td class="num font-semibold"><%= Math.round(p._price).toLocaleString("cs-CZ") %> Kč</td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        <% } %>
+      </div>
+    <% } %>
+  </section>
+</main>
+
+<script>
+  (function() {
+    const BRAND = '#ef4723';
+    const GREYS = ['#94a3b8', '#cbd5e1', '#64748b'];
+    const competitors = <%- JSON.stringify(competitors) %>;
+    const labels = <%- JSON.stringify(competitors.map(c => competitorLabels[c] || c)) %>;
+    const segments = <%- JSON.stringify(segments.map(s => s.label)) %>;
+    const matrix = <%- JSON.stringify(matrix) %>;
+    const segKeys = <%- JSON.stringify(segments.map(s => s.key)) %>;
+
+    // Stacked bar: per-segment, per-competitor.
+    const segCtx = document.getElementById('chart-segments');
+    if (segCtx) {
+      let greyIdx = 0;
+      const datasets = competitors.map((c, i) => ({
+        label: labels[i],
+        data: segKeys.map(k => matrix[k][c]),
+        backgroundColor: c === 'prospanek' ? BRAND : GREYS[greyIdx++ % GREYS.length],
+        borderRadius: 4,
+        borderWidth: 0,
+      }));
+      new Chart(segCtx, {
+        type: 'bar',
+        data: { labels: segments, datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, font: { family: 'Inter', size: 11 } } },
+            tooltip: { padding: 10 },
+          },
+          scales: {
+            x: { stacked: true, grid: { display: false }, ticks: { font: { family: 'Inter', size: 10 } } },
+            y: { stacked: true, grid: { color: '#e4e9f4' }, ticks: { font: { family: 'Inter', size: 10 } } },
+          },
+        },
+      });
+    }
+
+    // Histogram: line/area per competitor.
+    const histCtx = document.getElementById('chart-histogram');
+    const hist = <%- JSON.stringify(hist) %>;
+    if (histCtx) {
+      let greyIdx = 0;
+      const datasets = competitors.map((c, i) => {
+        const isUs = c === 'prospanek';
+        const color = isUs ? BRAND : GREYS[greyIdx++ % GREYS.length];
+        return {
+          label: labels[i],
+          data: hist.series[c],
+          borderColor: color,
+          backgroundColor: isUs ? 'rgba(239, 71, 35, 0.15)' : 'rgba(148, 163, 184, 0.08)',
+          fill: isUs,
+          tension: 0.3,
+          borderWidth: isUs ? 2.5 : 1.5,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+        };
+      });
+      new Chart(histCtx, {
+        type: 'line',
+        data: { labels: hist.labels, datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, font: { family: 'Inter', size: 11 } } },
+            tooltip: { padding: 10, callbacks: { title: (i) => i[0].label + ' Kč range' } },
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { family: 'Inter', size: 10 } } },
+            y: { grid: { color: '#e4e9f4' }, ticks: { font: { family: 'Inter', size: 10 } } },
+          },
+        },
+      });
+    }
+  })();
+</script>
+
+<%- include("partials/footer") %>
