@@ -1,0 +1,51 @@
+/* Plain CSS — no framework. Internal data tool, not pretty UI. */
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:14px;color:#1f2937;background:#f8fafc}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+.topbar{display:flex;align-items:center;gap:24px;padding:12px 24px;background:#0f172a;color:#f1f5f9}
+.topbar .brand{font-weight:600;font-size:15px}
+.topbar nav{display:flex;gap:4px}
+.topbar nav a{color:#cbd5e1;padding:6px 12px;border-radius:4px;font-weight:500}
+.topbar nav a.active{background:#1e293b;color:#fff}
+.topbar .meta{margin-left:auto;display:flex;gap:12px;align-items:center;font-size:12px;color:#94a3b8}
+.mode{text-transform:uppercase;font-weight:600;padding:2px 8px;border-radius:3px;font-size:11px}
+.mode-snowflake{background:#047857;color:#ecfdf5}
+.mode-sample{background:#b45309;color:#fffbeb}
+main{max-width:1280px;margin:0 auto;padding:24px}
+.page-head{display:flex;align-items:center;gap:16px;margin-bottom:16px}
+.page-head h1{margin:0;font-size:22px}
+.filter{margin-left:auto}
+.filter select{padding:6px 10px;border:1px solid #cbd5e1;border-radius:4px;background:#fff;font-size:14px}
+.grid{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;margin-bottom:32px}
+.grid th,.grid td{padding:10px 14px;text-align:left;border-bottom:1px solid #f1f5f9}
+.grid th{background:#f1f5f9;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#475569}
+.grid tr:last-child td{border-bottom:none}
+.grid td.num,.grid th.num{text-align:right;font-variant-numeric:tabular-nums}
+.grid .seg-label{font-weight:500}
+.grid .zero{color:#cbd5e1}
+.grid tr.totals td{font-weight:600;background:#f8fafc;border-top:2px solid #e2e8f0}
+.us{background:#eff6ff!important}
+.us.num,td.us,th.us{font-weight:600}
+.differ td:not(.seg-label){background:#fef3c7}
+.differ td.us{background:#fde68a!important}
+h2{margin-top:32px;font-size:17px}
+h3{margin:0 0 8px 0;font-size:14px}
+.topgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+@media(max-width:900px){.topgrid{grid-template-columns:1fr 1fr}}
+.topcol{background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:12px 16px}
+.topcol h3.us{color:#1d4ed8}
+.topcol ol{padding-left:20px;margin:0}
+.topcol li{margin:6px 0;line-height:1.4}
+.topcol .price{font-weight:600;margin-left:6px}
+.topcol .size{margin-left:4px}
+.muted{color:#94a3b8}
+.snippet{max-width:380px}
+.snippet a{color:#1e293b}
+.scope{display:inline-block;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:600;text-transform:uppercase;background:#e2e8f0;color:#475569}
+.scope-sitewide{background:#fee2e2;color:#991b1b}
+.scope-category{background:#fef3c7;color:#92400e}
+.scope-product{background:#e0e7ff;color:#3730a3}
+.scope-shipping{background:#dcfce7;color:#166534}
+.scope-bundle{background:#f3e8ff;color:#6b21a8}
+.bottom{text-align:center;padding:24px;color:#94a3b8;font-size:12px}

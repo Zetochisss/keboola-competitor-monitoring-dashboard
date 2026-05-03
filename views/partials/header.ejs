@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title><%= title %> · Competitor monitoring</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Mattress competitor monitoring</div>
+    <nav>
+      <a href="/" class="<%= active === 'portfolio' ? 'active' : '' %>">Portfolio</a>
+      <a href="/services" class="<%= active === 'services' ? 'active' : '' %>">Services</a>
+      <a href="/promos" class="<%= active === 'promos' ? 'active' : '' %>">Promos</a>
+    </nav>
+    <div class="meta">
+      <span class="mode mode-<%= mode %>"><%= mode %></span>
+      <% if (lastFetched) { %><span class="fetched">Last data: <%= lastFetched %></span><% } %>
+    </div>
+  </header>
+  <main>

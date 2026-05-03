@@ -1,0 +1,28 @@
+<%- include("partials/header", { title: "Promos", active, mode, lastFetched }) %>
+<section class="page-head">
+  <h1>Active promos</h1>
+  <p class="muted">Sorted by scope (sitewide → bundle), then by end date. Promos with no end date are treated as ongoing.</p>
+</section>
+<% if (promos.length === 0) { %>
+<p class="muted">No active promos found.</p>
+<% } else { %>
+<table class="grid">
+  <thead><tr>
+    <th>Competitor</th><th>Scope</th><th class="num">Discount %</th><th class="num">Free shipping (CZK)</th><th>Code</th><th>Ends</th><th>Text</th>
+  </tr></thead>
+  <tbody>
+    <% for (const p of promos) { %>
+    <tr class="<%= p.competitor === 'prospanek' ? 'us' : '' %>">
+      <td><%= p.competitor %></td>
+      <td><span class="scope scope-<%= p.scope || 'unknown' %>"><%= p.scope || '—' %></span></td>
+      <td class="num"><%= p.discount_pct ? p.discount_pct + '%' : '—' %></td>
+      <td class="num"><%= p.free_shipping_threshold_czk || '—' %></td>
+      <td><%= p.promo_code || '—' %></td>
+      <td><%= p.ends_at ? String(p.ends_at).slice(0,10) : 'ongoing' %></td>
+      <td class="snippet" <% if (p.promo_quote) { %>title="<%= p.promo_quote %>"<% } %>><% if (p.source_url) { %><a href="<%= p.source_url %>" target="_blank" rel="noopener"><%= p.promo_text %></a><% } else { %><%= p.promo_text %><% } %></td>
+    </tr>
+    <% } %>
+  </tbody>
+</table>
+<% } %>
+<%- include("partials/footer") %>

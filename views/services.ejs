@@ -1,0 +1,19 @@
+<%- include("partials/header", { title: "Services", active, mode, lastFetched }) %>
+<section class="page-head">
+  <h1>Services & policies</h1>
+  <p class="muted">Cells highlighted where <strong>prospanek</strong> differs from other competitors.</p>
+</section>
+<table class="grid">
+  <thead><tr><th>Fact</th><% for (const c of competitors) { %><th class="<%= c === 'prospanek' ? 'us' : '' %>"><%= c %></th><% } %></tr></thead>
+  <tbody>
+    <% for (const row of rows) { %>
+    <tr class="<%= row.differs ? 'differ' : '' %>">
+      <td class="seg-label"><%= row.factType %></td>
+      <% for (const c of competitors) { const cell = row.cells[c]; %>
+      <td class="<%= c === 'prospanek' ? 'us' : '' %>" <% if (cell && cell.quote) { %>title="<%= cell.quote %>"<% } %>><% if (cell && cell.value != null && cell.value !== '') { %><%= cell.value %><% } else { %><span class="muted">—</span><% } %></td>
+      <% } %>
+    </tr>
+    <% } %>
+  </tbody>
+</table>
+<%- include("partials/footer") %>

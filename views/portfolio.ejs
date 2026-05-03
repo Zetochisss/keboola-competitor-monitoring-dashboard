@@ -1,0 +1,46 @@
+<%- include("partials/header", { title: "Portfolio", active, mode, lastFetched }) %>
+<section class="page-head">
+  <h1>Portfolio by price segment</h1>
+  <form method="get" action="/" class="filter">
+    <label for="size">Size:</label>
+    <select id="size" name="size" onchange="this.form.submit()">
+      <option value="all" <%= size === "all" ? "selected" : "" %>>All sizes</option>
+      <% for (const s of sizes) { %><option value="<%= s %>" <%= size === s ? "selected" : "" %>><%= s %></option><% } %>
+    </select>
+    <noscript><button type="submit">Apply</button></noscript>
+  </form>
+</section>
+<table class="grid">
+  <thead><tr><th>Segment</th><% for (const c of competitors) { %><th class="<%= c === 'prospanek' ? 'us' : '' %>"><%= c %></th><% } %></tr></thead>
+  <tbody>
+    <% for (const seg of segments) { %>
+    <tr>
+      <td class="seg-label"><%= seg.label %></td>
+      <% for (const c of competitors) { const v = matrix[seg.key][c]; %><td class="num <%= c === 'prospanek' ? 'us' : '' %> <%= v === 0 ? 'zero' : '' %>"><%= v %></td><% } %>
+    </tr>
+    <% } %>
+    <tr class="totals"><td>Total</td><% for (const c of competitors) { %><td class="num <%= c === 'prospanek' ? 'us' : '' %>"><%= totals[c] %></td><% } %></tr>
+  </tbody>
+</table>
+<section>
+  <h2>Top 5 most expensive products per competitor (<%= size === "all" ? "all sizes" : size %>)</h2>
+  <div class="topgrid">
+    <% for (const c of competitors) { %>
+    <div class="topcol">
+      <h3 class="<%= c === 'prospanek' ? 'us' : '' %>"><%= c %></h3>
+      <% if (!top[c] || top[c].length === 0) { %><p class="muted">No products.</p><% } else { %>
+      <ol>
+        <% for (const p of top[c]) { %>
+        <li>
+          <% if (p.source_url) { %><a href="<%= p.source_url %>" target="_blank" rel="noopener"><%= p.name || "(no name)" %></a><% } else { %><%= p.name || "(no name)" %><% } %>
+          <span class="price"><%= Math.round(p._price).toLocaleString("cs-CZ") %> Kč</span>
+          <span class="muted size">· <%= p.size %></span>
+        </li>
+        <% } %>
+      </ol>
+      <% } %>
+    </div>
+    <% } %>
+  </div>
+</section>
+<%- include("partials/footer") %>
