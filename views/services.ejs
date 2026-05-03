@@ -1,19 +1,59 @@
-<%- include("partials/header", { title: "Services", active, mode, lastFetched }) %>
-<section class="page-head">
-  <h1>Services & policies</h1>
-  <p class="muted">Cells highlighted where <strong>prospanek</strong> differs from other competitors.</p>
-</section>
-<table class="grid">
-  <thead><tr><th>Fact</th><% for (const c of competitors) { %><th class="<%= c === 'prospanek' ? 'us' : '' %>"><%= c %></th><% } %></tr></thead>
-  <tbody>
-    <% for (const row of rows) { %>
-    <tr class="<%= row.differs ? 'differ' : '' %>">
-      <td class="seg-label"><%= row.factType %></td>
-      <% for (const c of competitors) { const cell = row.cells[c]; %>
-      <td class="<%= c === 'prospanek' ? 'us' : '' %>" <% if (cell && cell.quote) { %>title="<%= cell.quote %>"<% } %>><% if (cell && cell.value != null && cell.value !== '') { %><%= cell.value %><% } else { %><span class="muted">—</span><% } %></td>
-      <% } %>
-    </tr>
-    <% } %>
-  </tbody>
-</table>
+<%- include("partials/header", { title, active, mode, lastFetched }) %>
+
+<main class="container mx-auto px-6 py-8 max-w-7xl">
+  <div class="mb-6">
+    <h1 class="page-title">Services & policies</h1>
+    <p class="page-sub">Capability comparison across competitors. Rows where Pro Spánek leads are accented.</p>
+  </div>
+
+  <section class="card overflow-hidden">
+    <div class="card-pad border-b border-line flex items-center gap-3 flex-wrap">
+      <h3>Capability matrix</h3>
+      <div class="flex items-center gap-3 ml-auto text-xs text-ink-mute">
+        <span class="inline-flex items-center gap-1"><span class="badge badge-yes">Yes</span></span>
+        <span class="inline-flex items-center gap-1"><span class="badge badge-no">No</span></span>
+        <span class="inline-flex items-center gap-1"><span class="badge-num">123</span> value</span>
+        <span class="inline-flex items-center gap-1"><span class="us-accent inline-block w-1 h-3"></span> Pro Spánek leads</span>
+      </div>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="grid">
+        <thead>
+          <tr>
+            <th>Fact</th>
+            <% for (const c of competitors) { %>
+              <th class="<%= c === 'prospanek' ? 'us-row' : '' %>"><%= competitorLabels[c] || c %></th>
+            <% } %>
+          </tr>
+        </thead>
+        <tbody>
+          <% for (const row of rows) { %>
+            <tr class="<%= row.prospanekLeads ? 'us-accent' : '' %>">
+              <td class="competitor-cell"><%= row.factType.replace(/_/g, ' ') %></td>
+              <% for (const c of competitors) { const cell = row.cells[c]; %>
+                <td class="<%= c === 'prospanek' ? 'us-col' : '' %>" <% if (cell && cell.quote) { %>title="<%= String(cell.quote).replace(/"/g, '&quot;') %>"<% } %>>
+                  <% if (!cell || cell.value == null || cell.value === '') { %>
+                    <span class="text-ink-mute">—</span>
+                  <% } else if (cell.value === 'true' || cell.value === true) { %>
+                    <span class="badge badge-yes">Yes</span>
+                  <% } else if (cell.value === 'false' || cell.value === false) { %>
+                    <span class="badge badge-no">No</span>
+                  <% } else if (!isNaN(parseFloat(cell.value))) { %>
+                    <span class="badge-num"><%= Number(cell.value).toLocaleString("cs-CZ") %></span>
+                  <% } else { %>
+                    <span class="text-sm"><%= cell.value %></span>
+                  <% } %>
+                </td>
+              <% } %>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <p class="text-xs text-ink-mute mt-4">Hover any cell to see the verbatim quote captured from the competitor's page.</p>
+</main>
+
 <%- include("partials/footer") %>

@@ -8,7 +8,8 @@ import { fileURLToPath } from "node:url";
 import * as data from "./data.js";
 import {
   portfolioMatrix, topExpensivePerCompetitor, servicesMatrix, activePromos,
-  lastFetchedAt, COMPETITORS, SIZES, SEGMENTS,
+  priceHistogram, promoSummary, notableInsights, segmentHeatmap, kpis,
+  lastFetchedAt, COMPETITORS, COMPETITOR_LABELS, SIZES, SEGMENTS,
 } from "./aggregations.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -32,38 +33,79 @@ async function getData() {
   return cache.payload;
 }
 
+function todayCs() {
+  return new Date().toLocaleDateString("cs-CZ", { day: "numeric", month: "long", year: "numeric" });
+}
+
 function commonLocals(d) {
   return {
     mode,
     competitors: COMPETITORS,
+    competitorLabels: COMPETITOR_LABELS,
     sizes: SIZES,
+    segments: SEGMENTS,
+    today: todayCs(),
     lastFetched: lastFetchedAt([
       ...(d.products_raw || []), ...(d.service_facts || []), ...(d.promos || []),
     ]),
   };
 }
 
-app.get("/", async (req, res, next) => {
+app.get("/", async (_req, res, next) => {
+  try {
+    const d = await getData();
+    res.render("overview", {
+      ...commonLocals(d),
+      active: "overview",
+      title: "Overview",
+      kpi: kpis(d.products_raw, d.service_facts, d.promos),
+      heatmap: segmentHeatmap(d.products_raw),
+      insights: notableInsights(d.products_raw, d.service_facts, d.promos),
+    });
+  } catch (err) { next(err); }
+});
+
+app.get("/portfolio", async (req, res, next) => {
   try {
     const size = (req.query.size || "all").toString();
     const d = await getData();
     const { matrix, totals } = portfolioMatrix(d.products_raw, size);
-    const top = topExpensivePerCompetitor(d.products_raw, size, 5);
-    res.render("portfolio", { ...commonLocals(d), active: "portfolio", size, segments: SEGMENTS, matrix, totals, top });
+    const top = topExpensivePerCompetitor(d.products_raw, size, 10);
+    const hist = priceHistogram(d.products_raw, size);
+    res.render("portfolio", {
+      ...commonLocals(d), active: "portfolio", title: "Portfolio",
+      size, matrix, totals, top, hist,
+    });
   } catch (err) { next(err); }
 });
 
 app.get("/services", async (_req, res, next) => {
   try {
     const d = await getData();
-    res.render("services", { ...commonLocals(d), active: "services", rows: servicesMatrix(d.service_facts) });
+    res.render("services", {
+      ...commonLocals(d), active: "services", title: "Services",
+      rows: servicesMatrix(d.service_facts),
+    });
   } catch (err) { next(err); }
 });
 
 app.get("/promos", async (_req, res, next) => {
   try {
     const d = await getData();
-    res.render("promos", { ...commonLocals(d), active: "promos", promos: activePromos(d.promos) });
+    res.render("promos", {
+      ...commonLocals(d), active: "promos", title: "Promos",
+      promos: activePromos(d.promos),
+      summary: promoSummary(activePromos(d.promos)),
+    });
+  } catch (err) { next(err); }
+});
+
+app.get("/trends", async (_req, res, next) => {
+  try {
+    const d = await getData();
+    res.render("trends", {
+      ...commonLocals(d), active: "trends", title: "Trends",
+    });
   } catch (err) { next(err); }
 });
 

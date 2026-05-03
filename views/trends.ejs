@@ -1,0 +1,39 @@
+<%- include("partials/header", { title, active, mode, lastFetched }) %>
+
+<main class="container mx-auto px-6 py-8 max-w-7xl">
+  <div class="mb-6">
+    <h1 class="page-title">Trends</h1>
+    <p class="page-sub">Week-over-week movement in prices, portfolios, and promotional pressure.</p>
+  </div>
+
+  <section class="card empty">
+    <div class="icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="3" y1="12" x2="21" y2="12"/>
+        <line x1="3" y1="6" x2="21" y2="6"/>
+        <line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    </div>
+    <h2 class="text-lg font-semibold text-ink mb-2">Coming soon</h2>
+    <p class="text-sm max-w-xl mx-auto">
+      Trend charts unlock once we have at least a week of daily snapshots. The pipeline already retains every snapshot, so this page will populate automatically.
+    </p>
+  </section>
+
+  <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+    <div class="card card-pad">
+      <h3>Price movements</h3>
+      <p class="text-sm text-ink-soft mt-2">Median and 90th-percentile price per competitor over time, with arrows highlighting the biggest weekly drops and increases.</p>
+    </div>
+    <div class="card card-pad">
+      <h3>Portfolio changes</h3>
+      <p class="text-sm text-ink-soft mt-2">New SKUs added and discontinued per week, by segment. Shows which competitors are expanding or pruning their range.</p>
+    </div>
+    <div class="card card-pad">
+      <h3>Promo pressure</h3>
+      <p class="text-sm text-ink-soft mt-2">Active-promo count per competitor over time, separating sitewide campaigns from category and bundle offers.</p>
+    </div>
+  </section>
+</main>
+
+<%- include("partials/footer") %>
