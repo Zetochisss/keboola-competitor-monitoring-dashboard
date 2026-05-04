@@ -22,7 +22,7 @@ app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.use(express.static(path.join(__dirname, "public")));
 
-let mode = "snowflake";
+let mode = "live";
 
 let cache = { ts: 0, payload: null };
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -134,7 +134,7 @@ app.use((err, _req, res, _next) => {
     mode = (await data.init()).mode;
   } catch (err) {
     console.error("[app] data init failed:", err.message);
-    process.exit(1);
+    mode = "empty";
   }
   app.listen(PORT, () => console.log(`Competitor dashboard listening on port ${PORT} (mode: ${mode})`));
 })();
