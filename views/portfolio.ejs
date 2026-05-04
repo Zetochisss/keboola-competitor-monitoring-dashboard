@@ -2,15 +2,15 @@
 
 <main class="container mx-auto px-6 py-8 max-w-7xl">
   <div class="mb-6">
-    <h1 class="page-title">Portfolio</h1>
-    <p class="page-sub">Product counts, price distribution, and the most expensive products per competitor.</p>
+    <h1 class="page-title">Sortiment</h1>
+    <p class="page-sub">Počty produktů, cenové rozložení a nejdražší produkty u jednotlivých konkurentů.</p>
   </div>
 
   <!-- Filter bar -->
   <section class="card card-pad mb-6">
     <form method="get" action="/portfolio" class="filterbar" id="filter-form">
-      <span class="text-xs uppercase tracking-wider text-ink-mute font-medium mr-2">Size</span>
-      <% const sizeOpts = [{key:"all",label:"All sizes"}, {key:"90x200",label:"90×200"}, {key:"160x200",label:"160×200"}, {key:"180x200",label:"180×200"}]; %>
+      <span class="text-xs uppercase tracking-wider text-ink-mute font-medium mr-2">Rozměr</span>
+      <% const sizeOpts = [{key:"all",label:"Všechny rozměry"}, {key:"90x200",label:"90×200"}, {key:"160x200",label:"160×200"}, {key:"180x200",label:"180×200"}]; %>
       <% for (const opt of sizeOpts) { %>
         <label class="chip <%= size === opt.key ? 'active' : '' %>">
           <input type="radio" name="size" value="<%= opt.key %>" class="hidden" <%= size === opt.key ? 'checked' : '' %> onchange="document.getElementById('filter-form').submit()" />
@@ -24,8 +24,8 @@
   <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
     <div class="card">
       <div class="card-pad border-b border-line">
-        <h3>Products per segment</h3>
-        <p class="text-xs text-ink-mute mt-1">Stacked by competitor</p>
+        <h3>Produkty v segmentu</h3>
+        <p class="text-xs text-ink-mute mt-1">Sčítáno podle konkurenta</p>
       </div>
       <div class="card-pad" style="height: 320px;">
         <canvas id="chart-segments"></canvas>
@@ -33,8 +33,8 @@
     </div>
     <div class="card">
       <div class="card-pad border-b border-line">
-        <h3>Price distribution</h3>
-        <p class="text-xs text-ink-mute mt-1">2 500 Kč buckets, count of products</p>
+        <h3>Rozložení cen</h3>
+        <p class="text-xs text-ink-mute mt-1">Pásma 2 500 Kč, počet produktů</p>
       </div>
       <div class="card-pad" style="height: 320px;">
         <canvas id="chart-histogram"></canvas>
@@ -45,8 +45,8 @@
   <!-- Top expensive -->
   <section class="card" x-data="{ tab: 'prospanek' }">
     <div class="card-pad border-b border-line">
-      <h3>Top 10 most expensive products</h3>
-      <p class="text-xs text-ink-mute mt-1"><%= size === "all" ? "All sizes" : "Size " + size %></p>
+      <h3>Top 10 nejdražších produktů</h3>
+      <p class="text-xs text-ink-mute mt-1"><%= size === "all" ? "Všechny rozměry" : "Rozměr " + size %></p>
     </div>
     <div class="px-6 pt-2">
       <div class="tablist">
@@ -58,16 +58,16 @@
     <% for (const c of competitors) { %>
       <div x-show="tab === '<%= c %>'" x-cloak>
         <% if (!top[c] || top[c].length === 0) { %>
-          <div class="empty"><p>No products tracked for this competitor yet.</p></div>
+          <div class="empty"><p>Pro tohoto konkurenta zatím nejsou sledovány žádné produkty.</p></div>
         <% } else { %>
           <table class="data-table">
             <thead>
               <tr>
                 <th class="w-10">#</th>
-                <th>Product</th>
-                <th>Size</th>
-                <th>Subcategory</th>
-                <th class="num">Price</th>
+                <th>Produkt</th>
+                <th>Rozměr</th>
+                <th>Podkategorie</th>
+                <th class="num">Cena</th>
               </tr>
             </thead>
             <tbody>
@@ -76,9 +76,9 @@
                   <td class="text-ink-mute"><%= idx + 1 %></td>
                   <td>
                     <% if (p.source_url) { %>
-                      <a href="<%= p.source_url %>" target="_blank" rel="noopener" class="font-medium"><%= p.name || "(no name)" %></a>
+                      <a href="<%= p.source_url %>" target="_blank" rel="noopener" class="font-medium"><%= p.name || "(bez názvu)" %></a>
                     <% } else { %>
-                      <span class="font-medium"><%= p.name || "(no name)" %></span>
+                      <span class="font-medium"><%= p.name || "(bez názvu)" %></span>
                     <% } %>
                   </td>
                   <td class="text-ink-soft"><%= p.size %></td>
@@ -161,7 +161,7 @@
           maintainAspectRatio: false,
           plugins: {
             legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, font: { family: 'Inter', size: 11 } } },
-            tooltip: { padding: 10, callbacks: { title: (i) => i[0].label + ' Kč range' } },
+            tooltip: { padding: 10, callbacks: { title: (i) => 'Pásmo ' + i[0].label + ' Kč' } },
           },
           scales: {
             x: { grid: { display: false }, ticks: { font: { family: 'Inter', size: 10 } } },

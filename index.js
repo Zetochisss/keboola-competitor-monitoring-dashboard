@@ -1,6 +1,7 @@
 // Internal dashboard for Czech mattress competitor monitoring.
-// Reads from Keboola Storage bucket in.c-competitor-monitoring (via Snowflake)
-// when running as a Keboola Data App; falls back to local CSVs otherwise.
+// Reads curated tables from out.c-competitor-monitoring via Snowflake
+// (products_curated, product_events) plus raw service_facts and promos
+// (curation deferred until extraction quality improves).
 
 import express from "express";
 import path from "node:path";
@@ -9,7 +10,8 @@ import * as data from "./data.js";
 import {
   portfolioMatrix, topExpensivePerCompetitor, servicesMatrix, activePromos,
   priceHistogram, promoSummary, notableInsights, segmentHeatmap, kpis,
-  lastFetchedAt, COMPETITORS, COMPETITOR_LABELS, SIZES, SEGMENTS,
+  lastFetchedAt, newsOfTheDay, priceTrend,
+  COMPETITORS, COMPETITOR_LABELS, SIZES, SEGMENTS,
 } from "./aggregations.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -20,10 +22,8 @@ app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.use(express.static(path.join(__dirname, "public")));
 
-let mode = "sample";
+let mode = "snowflake";
 
-// 5-min in-process cache. Tables are <1K rows and refresh daily; this keeps
-// Snowflake load near zero with no noticeable staleness.
 let cache = { ts: 0, payload: null };
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -37,6 +37,13 @@ function todayCs() {
   return new Date().toLocaleDateString("cs-CZ", { day: "numeric", month: "long", year: "numeric" });
 }
 
+function fmtDate(iso) {
+  if (!iso) return null;
+  const s = typeof iso === "string" ? iso.slice(0, 10) : new Date(iso).toISOString().slice(0, 10);
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("cs-CZ", { day: "numeric", month: "long", year: "numeric" });
+}
+
 function commonLocals(d) {
   return {
     mode,
@@ -45,9 +52,9 @@ function commonLocals(d) {
     sizes: SIZES,
     segments: SEGMENTS,
     today: todayCs(),
-    lastFetched: lastFetchedAt([
-      ...(d.products_raw || []), ...(d.service_facts || []), ...(d.promos || []),
-    ]),
+    lastFetched: fmtDate(lastFetchedAt([
+      ...(d.products_curated || []), ...(d.service_facts || []), ...(d.promos || []),
+    ])),
   };
 }
 
@@ -57,10 +64,10 @@ app.get("/", async (_req, res, next) => {
     res.render("overview", {
       ...commonLocals(d),
       active: "overview",
-      title: "Overview",
-      kpi: kpis(d.products_raw, d.service_facts, d.promos),
-      heatmap: segmentHeatmap(d.products_raw),
-      insights: notableInsights(d.products_raw, d.service_facts, d.promos),
+      title: "Přehled",
+      kpi: kpis(d.products_curated, d.service_facts, d.promos),
+      heatmap: segmentHeatmap(d.products_curated),
+      insights: notableInsights(d.products_curated, d.service_facts, d.promos),
     });
   } catch (err) { next(err); }
 });
@@ -69,11 +76,11 @@ app.get("/portfolio", async (req, res, next) => {
   try {
     const size = (req.query.size || "all").toString();
     const d = await getData();
-    const { matrix, totals } = portfolioMatrix(d.products_raw, size);
-    const top = topExpensivePerCompetitor(d.products_raw, size, 10);
-    const hist = priceHistogram(d.products_raw, size);
+    const { matrix, totals } = portfolioMatrix(d.products_curated, size);
+    const top = topExpensivePerCompetitor(d.products_curated, size, 10);
+    const hist = priceHistogram(d.products_curated, size);
     res.render("portfolio", {
-      ...commonLocals(d), active: "portfolio", title: "Portfolio",
+      ...commonLocals(d), active: "portfolio", title: "Sortiment",
       size, matrix, totals, top, hist,
     });
   } catch (err) { next(err); }
@@ -83,7 +90,7 @@ app.get("/services", async (_req, res, next) => {
   try {
     const d = await getData();
     res.render("services", {
-      ...commonLocals(d), active: "services", title: "Services",
+      ...commonLocals(d), active: "services", title: "Služby",
       rows: servicesMatrix(d.service_facts),
     });
   } catch (err) { next(err); }
@@ -93,7 +100,7 @@ app.get("/promos", async (_req, res, next) => {
   try {
     const d = await getData();
     res.render("promos", {
-      ...commonLocals(d), active: "promos", title: "Promos",
+      ...commonLocals(d), active: "promos", title: "Akce",
       promos: activePromos(d.promos),
       summary: promoSummary(activePromos(d.promos)),
     });
@@ -103,13 +110,17 @@ app.get("/promos", async (_req, res, next) => {
 app.get("/trends", async (_req, res, next) => {
   try {
     const d = await getData();
+    const news = newsOfTheDay(d.product_events || []);
+    const trend = priceTrend(d.products_curated, "180x200");
     res.render("trends", {
-      ...commonLocals(d), active: "trends", title: "Trends",
+      ...commonLocals(d), active: "trends", title: "Trendy",
+      news,
+      newsDateLabel: news.date ? fmtDate(news.date) : null,
+      trend,
     });
   } catch (err) { next(err); }
 });
 
-// Health endpoints for Keboola Data App probe.
 app.get("/health", (_req, res) => res.send("OK"));
 app.post("/", (_req, res) => res.send("OK"));
 
@@ -122,8 +133,8 @@ app.use((err, _req, res, _next) => {
   try {
     mode = (await data.init()).mode;
   } catch (err) {
-    console.error("[app] data init failed, falling back to sample:", err.message);
-    mode = "sample";
+    console.error("[app] data init failed:", err.message);
+    process.exit(1);
   }
   app.listen(PORT, () => console.log(`Competitor dashboard listening on port ${PORT} (mode: ${mode})`));
 })();

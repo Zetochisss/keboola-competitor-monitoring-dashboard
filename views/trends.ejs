@@ -2,38 +2,164 @@
 
 <main class="container mx-auto px-6 py-8 max-w-7xl">
   <div class="mb-6">
-    <h1 class="page-title">Trends</h1>
-    <p class="page-sub">Week-over-week movement in prices, portfolios, and promotional pressure.</p>
+    <h1 class="page-title">Trendy</h1>
+    <p class="page-sub">Změny v cenách a sortimentu konkurence ze dne na den. Trendy se naplňují každým denním během.</p>
   </div>
 
-  <section class="card empty">
-    <div class="icon">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="3" y1="12" x2="21" y2="12"/>
-        <line x1="3" y1="6" x2="21" y2="6"/>
-        <line x1="3" y1="18" x2="21" y2="18"/>
-      </svg>
+  <!-- Novinky dne -->
+  <section class="card mb-6">
+    <div class="card-pad border-b border-line flex items-center justify-between flex-wrap gap-2">
+      <div>
+        <h3>Novinky dne</h3>
+        <p class="text-xs text-ink-mute mt-1">
+          <% if (newsDateLabel) { %>
+            Změny zjištěné <%= newsDateLabel %> oproti předchozí aktualizaci
+          <% } else { %>
+            Bude k dispozici po druhém denním běhu
+          <% } %>
+        </p>
+      </div>
+      <% if (news.totals) { %>
+        <div class="flex gap-2 text-xs">
+          <% if (news.totals.price > 0) { %>
+            <span class="badge scope-sitewide"><%= news.totals.price %> změn cen</span>
+          <% } %>
+          <% if (news.totals.new > 0) { %>
+            <span class="badge scope-product"><%= news.totals.new %> nových</span>
+          <% } %>
+          <% if (news.totals.removed > 0) { %>
+            <span class="badge scope-bundle"><%= news.totals.removed %> odebraných</span>
+          <% } %>
+        </div>
+      <% } %>
     </div>
-    <h2 class="text-lg font-semibold text-ink mb-2">Coming soon</h2>
-    <p class="text-sm max-w-xl mx-auto">
-      Trend charts unlock once we have at least a week of daily snapshots. The pipeline already retains every snapshot, so this page will populate automatically.
-    </p>
+
+    <% if (!news.items || news.items.length === 0) { %>
+      <div class="empty">
+        <div class="icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <p>Změny ze dne na den budou k dispozici po druhém denním běhu extraktoru.</p>
+      </div>
+    <% } else { %>
+      <div class="overflow-x-auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Typ</th>
+              <th>Konkurent</th>
+              <th>Produkt</th>
+              <th>Rozměr</th>
+              <th class="num">Z</th>
+              <th class="num">Na</th>
+              <th class="num">Změna</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% for (const e of news.items) {
+                 const sevClass = e.severity === 'high' ? 'badge-no' : (e.severity === 'medium' ? 'badge-num' : 'badge-yes');
+                 const typeLabel = e.event_type === 'price_changed' ? 'Cena' : (e.event_type === 'new_product' ? 'Nový' : 'Odebrán');
+            %>
+              <tr class="<%= e.competitor === 'prospanek' ? 'us-accent' : '' %>">
+                <td><span class="badge <%= sevClass %>"><%= typeLabel %></span></td>
+                <td class="competitor-cell"><%= competitorLabels[e.competitor] || e.competitor %></td>
+                <td>
+                  <% if (e.source_url) { %>
+                    <a href="<%= e.source_url %>" target="_blank" rel="noopener" class="font-medium"><%= e.name || "(bez názvu)" %></a>
+                  <% } else { %>
+                    <span class="font-medium"><%= e.name || "(bez názvu)" %></span>
+                  <% } %>
+                </td>
+                <td class="text-ink-soft"><%= e.size %></td>
+                <td class="num text-ink-mute"><%= e.old_value ? Math.round(Number(e.old_value)).toLocaleString("cs-CZ") + ' Kč' : '—' %></td>
+                <td class="num font-semibold"><%= e.new_value ? Math.round(Number(e.new_value)).toLocaleString("cs-CZ") + ' Kč' : '—' %></td>
+                <td class="num">
+                  <% if (e.pct_change != null) { %>
+                    <span class="<%= Number(e.pct_change) < 0 ? 'text-brand font-semibold' : 'text-ink' %>">
+                      <%= Number(e.pct_change) > 0 ? '+' : '' %><%= Number(e.pct_change).toLocaleString("cs-CZ") %> %
+                    </span>
+                  <% } else { %><span class="text-ink-mute">—</span><% } %>
+                </td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
   </section>
 
-  <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-    <div class="card card-pad">
-      <h3>Price movements</h3>
-      <p class="text-sm text-ink-soft mt-2">Median and 90th-percentile price per competitor over time, with arrows highlighting the biggest weekly drops and increases.</p>
+  <!-- Vývoj cen v čase -->
+  <section class="card">
+    <div class="card-pad border-b border-line">
+      <h3>Vývoj mediánové ceny v čase</h3>
+      <p class="text-xs text-ink-mute mt-1">Rozměr 180×200 · medián efektivní ceny per konkurent · čára se prodlužuje s každým denním během</p>
     </div>
-    <div class="card card-pad">
-      <h3>Portfolio changes</h3>
-      <p class="text-sm text-ink-soft mt-2">New SKUs added and discontinued per week, by segment. Shows which competitors are expanding or pruning their range.</p>
-    </div>
-    <div class="card card-pad">
-      <h3>Promo pressure</h3>
-      <p class="text-sm text-ink-soft mt-2">Active-promo count per competitor over time, separating sitewide campaigns from category and bundle offers.</p>
+    <div class="card-pad" style="height: 360px;">
+      <% if (!trend.dates || trend.dates.length < 2) { %>
+        <div class="empty">
+          <div class="icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </div>
+          <p>Trendová křivka se zobrazí po druhém denním běhu extraktoru. Aktuálně máme <%= (trend.dates || []).length %> aktualizaci.</p>
+        </div>
+      <% } else { %>
+        <canvas id="chart-trend"></canvas>
+      <% } %>
     </div>
   </section>
 </main>
+
+<script>
+  (function() {
+    const BRAND = '#ef4723';
+    const GREYS = ['#94a3b8', '#cbd5e1', '#64748b'];
+    const competitors = <%- JSON.stringify(competitors) %>;
+    const labels = <%- JSON.stringify(competitors.map(c => competitorLabels[c] || c)) %>;
+    const trend = <%- JSON.stringify(trend) %>;
+
+    const ctx = document.getElementById('chart-trend');
+    if (ctx && trend.dates && trend.dates.length >= 2) {
+      const fmtDate = (iso) => {
+        const [y, m, d] = iso.split('-').map(Number);
+        return new Date(y, m - 1, d).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'short' });
+      };
+      let greyIdx = 0;
+      const datasets = competitors.map((c, i) => {
+        const isUs = c === 'prospanek';
+        const color = isUs ? BRAND : GREYS[greyIdx++ % GREYS.length];
+        return {
+          label: labels[i],
+          data: trend.series[c],
+          borderColor: color,
+          backgroundColor: isUs ? 'rgba(239, 71, 35, 0.10)' : 'transparent',
+          fill: isUs,
+          tension: 0.25,
+          borderWidth: isUs ? 2.5 : 1.5,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          spanGaps: true,
+        };
+      });
+      new Chart(ctx, {
+        type: 'line',
+        data: { labels: trend.dates.map(fmtDate), datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, font: { family: 'Inter', size: 11 } } },
+            tooltip: { padding: 10, callbacks: {
+              label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y == null ? '—' : Math.round(ctx.parsed.y).toLocaleString('cs-CZ') + ' Kč'}`,
+            } },
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { family: 'Inter', size: 10 } } },
+            y: { grid: { color: '#e4e9f4' }, ticks: { font: { family: 'Inter', size: 10 }, callback: (v) => Math.round(v).toLocaleString('cs-CZ') + ' Kč' } },
+          },
+        },
+      });
+    }
+  })();
+</script>
 
 <%- include("partials/footer") %>

@@ -2,8 +2,8 @@
 
 <main class="container mx-auto px-6 py-8 max-w-7xl">
   <div class="mb-6">
-    <h1 class="page-title">Promotional intelligence</h1>
-    <p class="page-sub">Active promos across competitors, sorted by scope (sitewide first) then end date.</p>
+    <h1 class="page-title">Akce a slevy</h1>
+    <p class="page-sub">Aktivní akce u konkurentů, řazené podle rozsahu (nejdříve celosíťové) a poté podle data konce.</p>
   </div>
 
   <!-- Per-competitor cards -->
@@ -17,9 +17,9 @@
         <div class="kpi-value"><%= s.total %></div>
         <div class="kpi-foot">
           <% if (s.endingSoon) { %>
-            <span class="text-brand font-semibold"><%= s.endingSoon %> ending in 7d</span>
+            <span class="text-brand font-semibold"><%= s.endingSoon %> končí do 7 dnů</span>
           <% } else { %>
-            <span>active promotions</span>
+            <span>aktivních akcí</span>
           <% } %>
         </div>
         <% if (Object.keys(s.scopes).length) { %>
@@ -38,7 +38,7 @@
       <div class="icon">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       </div>
-      <p>No active promos found in the latest snapshot.</p>
+      <p>V poslední aktualizaci nebyly nalezeny žádné aktivní akce.</p>
     </div>
   <% } else {
        const today = new Date();
@@ -46,20 +46,20 @@
   %>
     <section class="card overflow-hidden">
       <div class="card-pad border-b border-line flex items-center justify-between">
-        <h3>All active promos</h3>
-        <div class="text-xs text-ink-mute">Rows ending within 7 days are highlighted</div>
+        <h3>Všechny aktivní akce</h3>
+        <div class="text-xs text-ink-mute">Akce končící do 7 dnů jsou zvýrazněny</div>
       </div>
       <div class="overflow-x-auto">
         <table class="data-table">
           <thead>
             <tr>
-              <th>Competitor</th>
-              <th>Scope</th>
-              <th class="num">Discount</th>
-              <th class="num">Free shipping</th>
-              <th>Code</th>
-              <th>Ends</th>
-              <th>Promo</th>
+              <th>Konkurent</th>
+              <th>Rozsah</th>
+              <th class="num">Sleva</th>
+              <th class="num">Doprava zdarma od</th>
+              <th>Kód</th>
+              <th>Konec</th>
+              <th>Akce</th>
             </tr>
           </thead>
           <tbody>
@@ -77,7 +77,7 @@
                   <% if (ends) { %>
                     <span class="<%= endingSoon ? 'text-brand font-semibold' : 'text-ink-soft' %>"><%= ends %></span>
                   <% } else { %>
-                    <span class="text-ink-mute">ongoing</span>
+                    <span class="text-ink-mute">trvá</span>
                   <% } %>
                 </td>
                 <td class="max-w-md">

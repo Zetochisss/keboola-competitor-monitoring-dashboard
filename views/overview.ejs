@@ -3,32 +3,32 @@
 <main class="container mx-auto px-6 py-8 max-w-7xl">
   <div class="flex items-baseline justify-between flex-wrap gap-2 mb-8">
     <div>
-      <h1 class="page-title">Competitor Monitoring</h1>
-      <p class="page-sub"><%= today %> · 4 Czech mattress e-shops tracked daily</p>
+      <h1 class="page-title">Sledování konkurence</h1>
+      <p class="page-sub"><%= today %> · 4 české e-shopy s matracemi sledované denně</p>
     </div>
   </div>
 
   <!-- KPI cards -->
   <section class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
     <div class="card kpi-accent card-pad">
-      <div class="kpi-label">Pro Spánek products</div>
+      <div class="kpi-label">Produkty Pro Spánek</div>
       <div class="kpi-value"><%= kpi.ourProducts %></div>
-      <div class="kpi-foot">tracked in latest snapshot</div>
+      <div class="kpi-foot">v poslední aktualizaci</div>
     </div>
     <div class="card card-pad">
-      <div class="kpi-label">Avg competitor</div>
+      <div class="kpi-label">Průměr konkurence</div>
       <div class="kpi-value"><%= kpi.avgCompetitor %></div>
-      <div class="kpi-foot">products per competitor</div>
+      <div class="kpi-foot">produktů na konkurenta</div>
     </div>
     <div class="card card-pad">
-      <div class="kpi-label">Active promos</div>
+      <div class="kpi-label">Aktivní akce</div>
       <div class="kpi-value"><%= kpi.activePromos %></div>
-      <div class="kpi-foot">across all competitors</div>
+      <div class="kpi-foot">napříč všemi konkurenty</div>
     </div>
     <div class="card card-pad">
-      <div class="kpi-label">Services we lead on</div>
+      <div class="kpi-label">Služby, kde vedeme</div>
       <div class="kpi-value"><%= kpi.servicesLed %></div>
-      <div class="kpi-foot">facts only Pro Spánek confirms</div>
+      <div class="kpi-foot">služby potvrzené pouze Pro Spánkem</div>
     </div>
   </section>
 
@@ -37,10 +37,10 @@
     <section class="card lg:col-span-2">
       <div class="card-pad border-b border-line flex items-center justify-between">
         <div>
-          <h3>Products by price segment</h3>
-          <p class="text-xs text-ink-mute mt-1">Latest snapshot · all sizes</p>
+          <h3>Produkty podle cenového segmentu</h3>
+          <p class="text-xs text-ink-mute mt-1">Poslední aktualizace · všechny rozměry</p>
         </div>
-        <a href="/portfolio" class="text-sm font-medium text-brand hover:text-brand-dark">Open Portfolio →</a>
+        <a href="/portfolio" class="text-sm font-medium text-brand hover:text-brand-dark">Otevřít sortiment →</a>
       </div>
       <div class="card-pad overflow-x-auto">
         <table class="data-table">
@@ -79,12 +79,12 @@
     <!-- Insights -->
     <section class="card">
       <div class="card-pad border-b border-line">
-        <h3>What's notable today</h3>
-        <p class="text-xs text-ink-mute mt-1">Hand-derived signals from latest data</p>
+        <h3>Pozoruhodné dnes</h3>
+        <p class="text-xs text-ink-mute mt-1">Odvozené signály z aktuálních dat</p>
       </div>
       <div class="card-pad">
         <% if (!insights.length) { %>
-          <p class="text-sm text-ink-mute">No notable signals — data may still be loading.</p>
+          <p class="text-sm text-ink-mute">Žádné pozoruhodné signály — data se možná ještě načítají.</p>
         <% } else { %>
           <ul class="insight-list">
             <% for (const item of insights) { %>
