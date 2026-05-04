@@ -263,7 +263,8 @@
     <div class="card-pad border-b border-line">
       <h3>Sleva podle značky</h3>
       <p class="text-xs text-ink-mute mt-1">
-        Pouze značky s ≥3 produkty · „ve slevě" = sale_price &lt; regular_price nebo discount_pct &gt; 0
+        Pouze značky s ≥3 produkty. „Ve slevě" = efektivní sleva ≥ 5 %. Značky s identickou slevou na všech produktech jsou
+        označeny <span class="badge badge-num">Strukturální</span> — jde o trvalé MSRP označení, ne o aktivní akci.
       </p>
     </div>
 
@@ -282,14 +283,19 @@
               <th class="cursor-pointer select-none" @click="setSort('display')">Producent<span x-text="sortIndicator('display')"></span></th>
               <th class="num cursor-pointer select-none" @click="setSort('total')"># produktů<span x-text="sortIndicator('total')"></span></th>
               <th class="num cursor-pointer select-none" @click="setSort('onSale')"># ve slevě<span x-text="sortIndicator('onSale')"></span></th>
-              <th class="num cursor-pointer select-none" @click="setSort('salePct')">% ve slevě<span x-text="sortIndicator('salePct')"></span></th>
+              <th class="num cursor-pointer select-none" @click="setSort('salePct')">% produktů ve slevě<span x-text="sortIndicator('salePct')"></span></th>
               <th class="num cursor-pointer select-none" @click="setSort('avgDiscount')">Průměrná sleva<span x-text="sortIndicator('avgDiscount')"></span></th>
             </tr>
           </thead>
           <tbody>
             <template x-for="r in sorted" :key="r.norm">
-              <tr>
-                <td class="competitor-cell" x-text="r.display"></td>
+              <tr :class="r.structural ? 'opacity-60' : ''">
+                <td class="competitor-cell">
+                  <span x-text="r.display"></span>
+                  <template x-if="r.structural">
+                    <span class="badge badge-num ml-2" title="Identická sleva na všech produktech — trvalé MSRP označení, ne aktivní akce.">Strukturální</span>
+                  </template>
+                </td>
                 <td class="num" x-text="fmtNum(r.total)"></td>
                 <td class="num" x-text="fmtNum(r.onSale)"></td>
                 <td class="num font-semibold" x-text="fmtPct(r.salePct)"></td>

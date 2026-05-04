@@ -442,42 +442,79 @@ export function brandPriceComparison(products, size = "180x200") {
   return out;
 }
 
+// Per-product effective discount %. Prefers discount_pct_num; falls back to
+// computed (reg - sale) / reg when pct is missing but both prices are present.
+function effectiveDiscount(r) {
+  const pct = num(r.discount_pct_num);
+  if (pct != null) return pct;
+  const sale = num(r.sale_price_czk_num);
+  const reg = num(r.regular_price_czk_num);
+  if (sale != null && reg != null && reg > 0 && sale < reg) {
+    return ((reg - sale) / reg) * 100;
+  }
+  return null;
+}
+
+const MIN_MEANINGFUL_DISCOUNT_PCT = 5;
+
+// A brand is treated as STRUCTURAL — i.e. its discount is a permanent
+// MSRP-vs-our-price markdown rather than a real promo — when:
+//   - every product has a non-null discount, AND
+//   - all those discounts collapse to a single rounded percent.
+// Such brands are excluded from on-sale counts, otherwise Tempur/Sealy/Serta
+// at Pro Spánek would (correctly but unhelpfully) read "100% on sale" forever.
+function isStructuralBrand(brandProducts) {
+  const pcts = brandProducts.map(effectiveDiscount);
+  if (pcts.some((p) => p == null)) return false;
+  const rounded = new Set(pcts.map((p) => Math.round(p)));
+  return rounded.size === 1 && [...rounded][0] >= MIN_MEANINGFUL_DISCOUNT_PCT;
+}
+
 // Discount share by brand (across all shops + sizes in latest snapshot).
-// "On sale" = sale_price_czk_num present & < regular_price_czk_num, OR discount_pct_num > 0.
-// Returns [{norm, display, total, onSale, salePct, avgDiscount}], filtered to brands with ≥3 products.
+// "On sale" = effective discount ≥ 5%, AND the brand isn't structurally discounted.
+// Returns [{norm, display, total, onSale, salePct, avgDiscount, structural}],
+// filtered to brands with ≥minProducts.
 export function brandDiscounts(products, minProducts = 3) {
   const latest = latestPerProduct(products);
   const display = brandDisplayMap(latest);
-  const stats = new Map(); // norm -> {total, onSale, discountSum, discountN}
+  const byBrand = new Map();
   for (const r of latest) {
     const n = normBrand(r.brand_normalized || r.brand);
     if (!n) continue;
-    if (!stats.has(n)) stats.set(n, { total: 0, onSale: 0, discountSum: 0, discountN: 0 });
-    const e = stats.get(n);
-    e.total++;
-    const sale = num(r.sale_price_czk_num);
-    const reg = num(r.regular_price_czk_num);
-    const pct = num(r.discount_pct_num);
-    const onSale = (sale != null && reg != null && sale < reg) || (pct != null && pct > 0);
-    if (onSale) {
-      e.onSale++;
-      if (pct != null && pct > 0) {
-        e.discountSum += pct;
-        e.discountN++;
+    if (!byBrand.has(n)) byBrand.set(n, []);
+    byBrand.get(n).push(r);
+  }
+  const arr = [];
+  for (const [n, brandProducts] of byBrand) {
+    if (brandProducts.length < minProducts) continue;
+    const structural = isStructuralBrand(brandProducts);
+    let onSale = 0, discountSum = 0, discountN = 0;
+    if (!structural) {
+      for (const r of brandProducts) {
+        const eff = effectiveDiscount(r);
+        if (eff != null && eff >= MIN_MEANINGFUL_DISCOUNT_PCT) {
+          onSale++;
+          discountSum += eff;
+          discountN++;
+        }
       }
     }
-  }
-  const arr = [...stats.entries()]
-    .filter(([, e]) => e.total >= minProducts)
-    .map(([n, e]) => ({
+    arr.push({
       norm: n,
       display: display.get(n) || n,
-      total: e.total,
-      onSale: e.onSale,
-      salePct: e.total ? (e.onSale / e.total) * 100 : 0,
-      avgDiscount: e.discountN ? e.discountSum / e.discountN : null,
-    }));
-  arr.sort((a, b) => b.salePct - a.salePct || b.total - a.total || a.display.localeCompare(b.display));
+      total: brandProducts.length,
+      onSale,
+      salePct: brandProducts.length ? (onSale / brandProducts.length) * 100 : 0,
+      avgDiscount: discountN ? discountSum / discountN : null,
+      structural,
+    });
+  }
+  arr.sort((a, b) =>
+    Number(a.structural) - Number(b.structural) ||
+    b.salePct - a.salePct ||
+    b.total - a.total ||
+    a.display.localeCompare(b.display, "cs")
+  );
   return arr;
 }
 
@@ -518,10 +555,24 @@ export function brandKpis(products) {
   }
   const housePct = totalOther ? (houseOther / totalOther) * 100 : 0;
 
-  // Average discount across brands (only products on sale with discount_pct_num > 0).
-  const pcts = latest
-    .map((r) => num(r.discount_pct_num))
-    .filter((p) => p != null && p > 0);
+  // Average discount across brands — excludes structurally-discounted brands
+  // (uniform pct across all products, e.g. always-on MSRP markdown) and trivial
+  // discounts <5%, so the figure reflects real promotional activity.
+  const byBrand = new Map();
+  for (const r of latest) {
+    const n = normBrand(r.brand_normalized || r.brand);
+    if (!n) continue;
+    if (!byBrand.has(n)) byBrand.set(n, []);
+    byBrand.get(n).push(r);
+  }
+  const pcts = [];
+  for (const brandProducts of byBrand.values()) {
+    if (isStructuralBrand(brandProducts)) continue;
+    for (const r of brandProducts) {
+      const eff = effectiveDiscount(r);
+      if (eff != null && eff >= MIN_MEANINGFUL_DISCOUNT_PCT) pcts.push(eff);
+    }
+  }
   const avgDiscount = pcts.length ? pcts.reduce((a, b) => a + b, 0) / pcts.length : null;
 
   return {
