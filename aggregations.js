@@ -81,7 +81,7 @@ export function allProductsRanked(products, size) {
       size: r.size,
       name: r.name || "",
       subcategory: r.subcategory || "",
-      brand: r.brand || "",
+      brand: r.brand_normalized || r.brand || "",
       price: num(r.effective_price_czk),
       is_available: (() => {
         const v = r.is_available;
@@ -298,24 +298,26 @@ export function newsOfTheDay(events) {
 
 // ---------- Brand / producer aggregations ----------
 
-// Normalize a brand value: trimmed, uppercased. Empty strings, null, "—", "?" → null.
-// We keep raw casings around for display via brandDisplayMap.
+// Normalize a brand value: strip ®/™, trim, uppercase. Empty / "—" / "?" → null.
+// Mirrors the SQL `brand_normalized` so Tempur® and Tempur collapse to one key.
 function normBrand(v) {
   if (v == null) return null;
-  const t = String(v).trim();
+  const t = String(v).replace(/[®™]/g, "").trim();
   if (!t) return null;
   if (t === "—" || t === "-" || t === "?" || t.toLowerCase() === "n/a") return null;
   return t.toUpperCase();
 }
 
 // Build canonical {NORM -> mostCommonOriginal} map. If a brand appears as
-// "Tropico" 8x and "TROPICO" 2x, "Tropico" wins as the display string.
+// "Tropico" 8x and "TROPICO" 2x, "Tropico" wins as the display string. The
+// raw display is also ®/™-stripped so we never show "Tempur®" alongside "Tempur".
 function brandDisplayMap(rows) {
-  const counts = new Map(); // norm -> Map(raw -> count)
+  const counts = new Map();
   for (const r of rows) {
-    const n = normBrand(r.brand);
+    const src = r.brand_normalized || r.brand;
+    const n = normBrand(src);
     if (!n) continue;
-    const raw = String(r.brand).trim();
+    const raw = String(src).replace(/[®™]/g, "").trim();
     if (!counts.has(n)) counts.set(n, new Map());
     const inner = counts.get(n);
     inner.set(raw, (inner.get(raw) || 0) + 1);
@@ -357,7 +359,7 @@ export function brandsAcrossCompetitors(products) {
   const display = brandDisplayMap(latest);
   const map = new Map(); // norm -> { perC: {c:n}, total: n }
   for (const r of latest) {
-    const n = normBrand(r.brand);
+    const n = normBrand(r.brand_normalized || r.brand);
     if (!n) continue;
     if (!COMPETITORS.includes(r.competitor)) continue;
     if (!map.has(n)) map.set(n, { perC: Object.fromEntries(COMPETITORS.map((c) => [c, 0])), total: 0 });
@@ -387,7 +389,7 @@ export function brandsAtProspanek(products) {
   const display = brandDisplayMap(latest);
   const counts = new Map();
   for (const r of latest) {
-    const n = normBrand(r.brand);
+    const n = normBrand(r.brand_normalized || r.brand);
     if (!n) continue;
     counts.set(n, (counts.get(n) || 0) + 1);
   }
@@ -410,7 +412,7 @@ export function brandPriceComparison(products, size = "180x200") {
   const display = brandDisplayMap(latest);
   const groups = new Map(); // norm -> {c -> [prices]}
   for (const r of latest) {
-    const n = normBrand(r.brand);
+    const n = normBrand(r.brand_normalized || r.brand);
     if (!n) continue;
     if (!COMPETITORS.includes(r.competitor)) continue;
     const p = num(r.effective_price_czk);
@@ -448,7 +450,7 @@ export function brandDiscounts(products, minProducts = 3) {
   const display = brandDisplayMap(latest);
   const stats = new Map(); // norm -> {total, onSale, discountSum, discountN}
   for (const r of latest) {
-    const n = normBrand(r.brand);
+    const n = normBrand(r.brand_normalized || r.brand);
     if (!n) continue;
     if (!stats.has(n)) stats.set(n, { total: 0, onSale: 0, discountSum: 0, discountN: 0 });
     const e = stats.get(n);
@@ -487,14 +489,14 @@ export function brandKpis(products) {
   // Producers tracked at Pro Spánek
   const ourBrands = new Set();
   for (const r of latest.filter((r) => r.competitor === "prospanek")) {
-    const n = normBrand(r.brand);
+    const n = normBrand(r.brand_normalized || r.brand);
     if (n) ourBrands.add(n);
   }
 
   // Producers shared across ≥2 shops.
   const presence = new Map();
   for (const r of latest) {
-    const n = normBrand(r.brand);
+    const n = normBrand(r.brand_normalized || r.brand);
     if (!n || !COMPETITORS.includes(r.competitor)) continue;
     if (!presence.has(n)) presence.set(n, new Set());
     presence.get(n).add(r.competitor);
@@ -509,7 +511,7 @@ export function brandKpis(products) {
   let totalOther = 0, houseOther = 0;
   for (const r of latest) {
     if (!otherShops.includes(r.competitor)) continue;
-    const n = normBrand(r.brand);
+    const n = normBrand(r.brand_normalized || r.brand);
     if (!n) continue;
     totalOther++;
     if (isHouseBrand(r.competitor, n)) houseOther++;
