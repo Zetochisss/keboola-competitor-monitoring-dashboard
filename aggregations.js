@@ -296,6 +296,242 @@ export function newsOfTheDay(events) {
   };
 }
 
+// ---------- Brand / producer aggregations ----------
+
+// Normalize a brand value: trimmed, uppercased. Empty strings, null, "—", "?" → null.
+// We keep raw casings around for display via brandDisplayMap.
+function normBrand(v) {
+  if (v == null) return null;
+  const t = String(v).trim();
+  if (!t) return null;
+  if (t === "—" || t === "-" || t === "?" || t.toLowerCase() === "n/a") return null;
+  return t.toUpperCase();
+}
+
+// Build canonical {NORM -> mostCommonOriginal} map. If a brand appears as
+// "Tropico" 8x and "TROPICO" 2x, "Tropico" wins as the display string.
+function brandDisplayMap(rows) {
+  const counts = new Map(); // norm -> Map(raw -> count)
+  for (const r of rows) {
+    const n = normBrand(r.brand);
+    if (!n) continue;
+    const raw = String(r.brand).trim();
+    if (!counts.has(n)) counts.set(n, new Map());
+    const inner = counts.get(n);
+    inner.set(raw, (inner.get(raw) || 0) + 1);
+  }
+  const out = new Map();
+  for (const [n, inner] of counts) {
+    let best = null, bestN = -1;
+    for (const [raw, c] of inner) {
+      if (c > bestN) { best = raw; bestN = c; }
+    }
+    out.set(n, best);
+  }
+  return out;
+}
+
+const HOUSE_BRANDS = {
+  // Competitor → set of normalised brand keys considered "house" / vlastní značka.
+  mpo_matrace: new Set(["MPO"]),
+  matracezahubicku: new Set(["FAVORIT", "MATRACEX"]),
+  dreamlux: new Set(),
+  prospanek: new Set(),
+};
+
+function isHouseBrand(competitor, normBrandKey) {
+  return HOUSE_BRANDS[competitor]?.has(normBrandKey) || false;
+}
+
+function median(arr) {
+  if (!arr || !arr.length) return null;
+  const s = [...arr].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+// Per-competitor brand counts on the latest snapshot.
+// Returns: { brands: [{norm, display, total, perCompetitor:{c:count}, atProspanek, shopCount}], displayMap }
+export function brandsAcrossCompetitors(products) {
+  const latest = latestPerProduct(products);
+  const display = brandDisplayMap(latest);
+  const map = new Map(); // norm -> { perC: {c:n}, total: n }
+  for (const r of latest) {
+    const n = normBrand(r.brand);
+    if (!n) continue;
+    if (!COMPETITORS.includes(r.competitor)) continue;
+    if (!map.has(n)) map.set(n, { perC: Object.fromEntries(COMPETITORS.map((c) => [c, 0])), total: 0 });
+    const e = map.get(n);
+    e.perC[r.competitor]++;
+    e.total++;
+  }
+  const brands = [...map.entries()].map(([n, e]) => {
+    const shopCount = COMPETITORS.filter((c) => e.perC[c] > 0).length;
+    return {
+      norm: n,
+      display: display.get(n) || n,
+      total: e.total,
+      perCompetitor: e.perC,
+      atProspanek: e.perC.prospanek > 0,
+      shopCount,
+    };
+  });
+  brands.sort((a, b) => b.shopCount - a.shopCount || b.total - a.total || a.display.localeCompare(b.display));
+  return { brands };
+}
+
+// Brand share at Pro Spánek (latest snapshot) — donut input.
+// Returns [{norm, display, count, pct}], sorted desc by count.
+export function brandsAtProspanek(products) {
+  const latest = latestPerProduct(products).filter((r) => r.competitor === "prospanek");
+  const display = brandDisplayMap(latest);
+  const counts = new Map();
+  for (const r of latest) {
+    const n = normBrand(r.brand);
+    if (!n) continue;
+    counts.set(n, (counts.get(n) || 0) + 1);
+  }
+  const total = [...counts.values()].reduce((a, b) => a + b, 0);
+  const arr = [...counts.entries()].map(([n, c]) => ({
+    norm: n,
+    display: display.get(n) || n,
+    count: c,
+    pct: total ? (c / total) * 100 : 0,
+  }));
+  arr.sort((a, b) => b.count - a.count || a.display.localeCompare(b.display));
+  return { rows: arr, total };
+}
+
+// Same-brand price comparison across shops, restricted to size 180×200 for fairness.
+// Only brands present at ≥2 shops included.
+// Returns [{norm, display, medianByCompetitor:{c:median|null}, prospanekUndercut:{c:bool}}]
+export function brandPriceComparison(products, size = "180x200") {
+  const latest = latestPerProduct(products).filter((r) => r.size === size);
+  const display = brandDisplayMap(latest);
+  const groups = new Map(); // norm -> {c -> [prices]}
+  for (const r of latest) {
+    const n = normBrand(r.brand);
+    if (!n) continue;
+    if (!COMPETITORS.includes(r.competitor)) continue;
+    const p = num(r.effective_price_czk);
+    if (p == null) continue;
+    if (!groups.has(n)) groups.set(n, Object.fromEntries(COMPETITORS.map((c) => [c, []])));
+    groups.get(n)[r.competitor].push(p);
+  }
+  const out = [];
+  for (const [n, perC] of groups) {
+    const medians = Object.fromEntries(COMPETITORS.map((c) => [c, median(perC[c])]));
+    const present = COMPETITORS.filter((c) => medians[c] != null);
+    if (present.length < 2) continue;
+    const ours = medians.prospanek;
+    const undercut = Object.fromEntries(COMPETITORS.map((c) => [
+      c,
+      c !== "prospanek" && ours != null && medians[c] != null && medians[c] < ours,
+    ]));
+    out.push({
+      norm: n,
+      display: display.get(n) || n,
+      medianByCompetitor: medians,
+      undercut,
+      shopCount: present.length,
+    });
+  }
+  out.sort((a, b) => b.shopCount - a.shopCount || a.display.localeCompare(b.display));
+  return out;
+}
+
+// Discount share by brand (across all shops + sizes in latest snapshot).
+// "On sale" = sale_price_czk_num present & < regular_price_czk_num, OR discount_pct_num > 0.
+// Returns [{norm, display, total, onSale, salePct, avgDiscount}], filtered to brands with ≥3 products.
+export function brandDiscounts(products, minProducts = 3) {
+  const latest = latestPerProduct(products);
+  const display = brandDisplayMap(latest);
+  const stats = new Map(); // norm -> {total, onSale, discountSum, discountN}
+  for (const r of latest) {
+    const n = normBrand(r.brand);
+    if (!n) continue;
+    if (!stats.has(n)) stats.set(n, { total: 0, onSale: 0, discountSum: 0, discountN: 0 });
+    const e = stats.get(n);
+    e.total++;
+    const sale = num(r.sale_price_czk_num);
+    const reg = num(r.regular_price_czk_num);
+    const pct = num(r.discount_pct_num);
+    const onSale = (sale != null && reg != null && sale < reg) || (pct != null && pct > 0);
+    if (onSale) {
+      e.onSale++;
+      if (pct != null && pct > 0) {
+        e.discountSum += pct;
+        e.discountN++;
+      }
+    }
+  }
+  const arr = [...stats.entries()]
+    .filter(([, e]) => e.total >= minProducts)
+    .map(([n, e]) => ({
+      norm: n,
+      display: display.get(n) || n,
+      total: e.total,
+      onSale: e.onSale,
+      salePct: e.total ? (e.onSale / e.total) * 100 : 0,
+      avgDiscount: e.discountN ? e.discountSum / e.discountN : null,
+    }));
+  arr.sort((a, b) => b.salePct - a.salePct || b.total - a.total || a.display.localeCompare(b.display));
+  return arr;
+}
+
+// Top-line KPIs for the producers page.
+export function brandKpis(products) {
+  const latest = latestPerProduct(products);
+  const display = brandDisplayMap(latest);
+
+  // Producers tracked at Pro Spánek
+  const ourBrands = new Set();
+  for (const r of latest.filter((r) => r.competitor === "prospanek")) {
+    const n = normBrand(r.brand);
+    if (n) ourBrands.add(n);
+  }
+
+  // Producers shared across ≥2 shops.
+  const presence = new Map();
+  for (const r of latest) {
+    const n = normBrand(r.brand);
+    if (!n || !COMPETITORS.includes(r.competitor)) continue;
+    if (!presence.has(n)) presence.set(n, new Set());
+    presence.get(n).add(r.competitor);
+  }
+  const sharedBrands = [...presence.values()].filter((s) => s.size >= 2).length;
+  const sharedWithProspanek = [...presence.entries()]
+    .filter(([, s]) => s.has("prospanek") && s.size >= 2)
+    .length;
+
+  // House-brand share among non-prospanek shops.
+  const otherShops = COMPETITORS.filter((c) => c !== "prospanek");
+  let totalOther = 0, houseOther = 0;
+  for (const r of latest) {
+    if (!otherShops.includes(r.competitor)) continue;
+    const n = normBrand(r.brand);
+    if (!n) continue;
+    totalOther++;
+    if (isHouseBrand(r.competitor, n)) houseOther++;
+  }
+  const housePct = totalOther ? (houseOther / totalOther) * 100 : 0;
+
+  // Average discount across brands (only products on sale with discount_pct_num > 0).
+  const pcts = latest
+    .map((r) => num(r.discount_pct_num))
+    .filter((p) => p != null && p > 0);
+  const avgDiscount = pcts.length ? pcts.reduce((a, b) => a + b, 0) / pcts.length : null;
+
+  return {
+    brandsAtProspanek: ourBrands.size,
+    sharedBrands,
+    sharedWithProspanek,
+    housePct,
+    avgDiscount,
+    displayMap: Object.fromEntries(display),
+  };
+}
+
 // Median effective price per (fetched_at_date, competitor) for a given size.
 // Returns { dates: [...], series: { competitor: [median per date] } } for line charts.
 export function priceTrend(products, size = "180x200") {

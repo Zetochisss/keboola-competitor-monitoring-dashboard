@@ -97,6 +97,7 @@
             <th class="w-10">#</th>
             <th>Produkt</th>
             <th>Konkurent</th>
+            <th>Producent</th>
             <th>Rozměr</th>
             <th>Podkategorie</th>
             <th>Dostupnost</th>
@@ -116,6 +117,7 @@
                 </template>
               </td>
               <td class="competitor-cell" x-text="competitorLabels[p.competitor] || p.competitor"></td>
+              <td class="text-ink-soft" x-text="p.brand || '—'"></td>
               <td class="text-ink-soft" x-text="p.size"></td>
               <td class="text-ink-soft" x-text="p.subcategory || '—'"></td>
               <td>
@@ -133,7 +135,7 @@
             </tr>
           </template>
           <template x-if="filtered.length === 0">
-            <tr><td colspan="7" class="text-center text-ink-mute py-6">Žádné produkty neodpovídají zvoleným filtrům.</td></tr>
+            <tr><td colspan="8" class="text-center text-ink-mute py-6">Žádné produkty neodpovídají zvoleným filtrům.</td></tr>
           </template>
         </tbody>
       </table>

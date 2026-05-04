@@ -1,0 +1,359 @@
+<%- include("partials/header", { title, active, mode, lastFetched }) %>
+
+<main class="container mx-auto px-6 py-8 max-w-7xl">
+  <div class="mb-6">
+    <h1 class="page-title">Producenti</h1>
+    <p class="page-sub">Přehled značek (producentů) napříč konkurencí — sdílení sortimentu, srovnání cen za stejnou značku a slevová aktivita.</p>
+  </div>
+
+  <!-- KPI cards -->
+  <section class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <div class="card kpi-accent card-pad">
+      <div class="kpi-label">Producenti u Pro Spánku</div>
+      <div class="kpi-value"><%= kpi.brandsAtProspanek.toLocaleString("cs-CZ") %></div>
+      <div class="kpi-foot">v poslední aktualizaci</div>
+    </div>
+    <div class="card card-pad">
+      <div class="kpi-label">Sdílení s Pro Spánkem</div>
+      <div class="kpi-value"><%= kpi.sharedWithProspanek.toLocaleString("cs-CZ") %></div>
+      <div class="kpi-foot">producenti u nás i u ≥1 konkurenta</div>
+    </div>
+    <div class="card card-pad">
+      <div class="kpi-label">Vlastní značky u konkurence</div>
+      <div class="kpi-value"><%= kpi.housePct.toFixed(0) %> %</div>
+      <div class="kpi-foot">podíl house-brand produktů (mimo Pro Spánek)</div>
+    </div>
+    <div class="card card-pad">
+      <div class="kpi-label">Průměrná sleva</div>
+      <div class="kpi-value">
+        <% if (kpi.avgDiscount != null) { %>
+          <%= kpi.avgDiscount.toFixed(0) %> %
+        <% } else { %>
+          —
+        <% } %>
+      </div>
+      <div class="kpi-foot">napříč značkami (kde sleva &gt; 0)</div>
+    </div>
+  </section>
+
+  <!-- Caveat notes -->
+  <div class="card card-pad mb-8 bg-soft text-xs text-ink-soft" style="background: var(--neutral-soft);">
+    <ul class="space-y-1">
+      <li>· Dreamlux: pokrytí značek ~25 % (mezera v extrakci, řešeno samostatně)</li>
+      <li>· MPO Matrace a Matrace za hubičku prodávají převážně vlastní značky (MPO, Favorit, MatraceX)</li>
+      <li>· Prázdné značky jsou vyloučeny ze všech analýz; varianty velikosti písmen jsou sloučeny</li>
+    </ul>
+  </div>
+
+  <!-- Mix u Pro Spánku -->
+  <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+    <div class="card lg:col-span-2">
+      <div class="card-pad border-b border-line">
+        <h3>Mix producentů u Pro Spánku</h3>
+        <p class="text-xs text-ink-mute mt-1">Podíl značek podle počtu produktů · poslední aktualizace · všechny rozměry</p>
+      </div>
+      <div class="card-pad" style="height: 360px;">
+        <% if (!mix.rows.length) { %>
+          <div class="empty">
+            <div class="icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+            </div>
+            <p>Žádné značky k zobrazení.</p>
+          </div>
+        <% } else { %>
+          <canvas id="chart-mix"></canvas>
+        <% } %>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-pad border-b border-line">
+        <h3>Pořadí značek</h3>
+        <p class="text-xs text-ink-mute mt-1">Pro Spánek · sestupně podle počtu produktů</p>
+      </div>
+      <div class="card-pad" style="max-height: 360px; overflow-y: auto;">
+        <% if (!mix.rows.length) { %>
+          <p class="text-sm text-ink-mute">—</p>
+        <% } else { %>
+          <ul class="insight-list">
+            <% for (const b of mix.rows) { %>
+              <li>
+                <span class="insight-dot"></span>
+                <span class="flex-1">
+                  <span class="font-medium"><%= b.display %></span>
+                  <span class="text-ink-mute"> · <%= b.count %> (<%= b.pct.toFixed(1) %> %)</span>
+                </span>
+              </li>
+            <% } %>
+          </ul>
+        <% } %>
+      </div>
+    </div>
+  </section>
+
+  <!-- Across competitors -->
+  <section class="card mb-8" x-data='{
+    sharedOnly: false,
+    sortKey: "shopCount",
+    sortDir: "desc",
+    rows: <%- JSON.stringify(across.brands.map(b => ({
+      display: b.display,
+      shopCount: b.shopCount,
+      total: b.total,
+      atProspanek: b.atProspanek,
+      perCompetitor: b.perCompetitor,
+    }))) %>,
+    competitors: <%- JSON.stringify(competitors) %>,
+    competitorLabels: <%- JSON.stringify(competitorLabels) %>,
+    setSort(k) {
+      if (this.sortKey === k) { this.sortDir = this.sortDir === "asc" ? "desc" : "asc"; }
+      else { this.sortKey = k; this.sortDir = (k === "display") ? "asc" : "desc"; }
+    },
+    sortIndicator(k) { return this.sortKey === k ? (this.sortDir === "asc" ? " ↑" : " ↓") : ""; },
+    get filtered() {
+      let arr = this.rows.filter(b => !this.sharedOnly || (b.atProspanek && b.shopCount >= 2));
+      const dir = this.sortDir === "asc" ? 1 : -1;
+      const k = this.sortKey;
+      arr = [...arr].sort((a, b) => {
+        if (k === "display") return a.display.localeCompare(b.display) * dir;
+        if (k.startsWith("c::")) {
+          const c = k.slice(3);
+          return ((a.perCompetitor[c] || 0) - (b.perCompetitor[c] || 0)) * dir;
+        }
+        return ((a[k] || 0) - (b[k] || 0)) * dir;
+      });
+      return arr;
+    }
+  }'>
+    <div class="card-pad border-b border-line flex items-center justify-between flex-wrap gap-2">
+      <div>
+        <h3>Producenti napříč konkurencí</h3>
+        <p class="text-xs text-ink-mute mt-1">Počet produktů na konkurenta · klikněte na záhlaví pro řazení</p>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <button class="chip" :class="!sharedOnly ? 'active' : ''" @click="sharedOnly=false">Všichni</button>
+        <button class="chip" :class="sharedOnly ? 'active' : ''" @click="sharedOnly=true">Pouze sdílení s Pro Spánkem</button>
+      </div>
+    </div>
+
+    <div class="card-pad text-xs text-ink-mute" x-text="`Zobrazeno ${filtered.length} z ${rows.length} producentů`"></div>
+
+    <div class="overflow-x-auto">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th class="cursor-pointer select-none" @click="setSort('display')">Producent<span x-text="sortIndicator('display')"></span></th>
+            <th class="num cursor-pointer select-none" @click="setSort('shopCount')"># shops<span x-text="sortIndicator('shopCount')"></span></th>
+            <template x-for="c in competitors" :key="c">
+              <th class="num cursor-pointer select-none" :class="c === 'prospanek' ? 'us-row' : ''" @click="setSort('c::' + c)">
+                <span x-text="competitorLabels[c] || c"></span><span x-text="sortIndicator('c::' + c)"></span>
+              </th>
+            </template>
+            <th class="num cursor-pointer select-none" @click="setSort('total')">Celkem<span x-text="sortIndicator('total')"></span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="b in filtered" :key="b.display">
+            <tr :class="b.atProspanek ? 'us-accent' : ''">
+              <td class="competitor-cell" x-text="b.display"></td>
+              <td class="num font-semibold" x-text="b.shopCount"></td>
+              <template x-for="c in competitors" :key="c">
+                <td class="num" :class="c === 'prospanek' ? 'us-row' : ''">
+                  <template x-if="b.perCompetitor[c] > 0">
+                    <span x-text="Number(b.perCompetitor[c]).toLocaleString('cs-CZ')"></span>
+                  </template>
+                  <template x-if="!b.perCompetitor[c]">
+                    <span class="text-ink-mute">—</span>
+                  </template>
+                </td>
+              </template>
+              <td class="num" x-text="Number(b.total).toLocaleString('cs-CZ')"></td>
+            </tr>
+          </template>
+          <template x-if="filtered.length === 0">
+            <tr><td :colspan="3 + competitors.length" class="text-center text-ink-mute py-6">Žádní producenti neodpovídají filtru.</td></tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Same-brand price comparison -->
+  <section class="card mb-8">
+    <div class="card-pad border-b border-line">
+      <h3>Stejný producent — srovnání cen</h3>
+      <p class="text-xs text-ink-mute mt-1">
+        Producenti dostupní u ≥2 konkurentů · medián efektivní ceny · pouze rozměr <span class="font-medium">180×200</span> pro férové srovnání.
+        Červeně označené buňky = konkurent prodává levněji než Pro Spánek.
+      </p>
+    </div>
+
+    <% if (!compare.length) { %>
+      <div class="empty">
+        <div class="icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+        </div>
+        <p>Žádný producent není sdílen mezi ≥2 shopy v rozměru 180×200.</p>
+      </div>
+    <% } else { %>
+      <div class="overflow-x-auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Producent</th>
+              <th class="num"># shops</th>
+              <% for (const c of competitors) { %>
+                <th class="num <%= c === 'prospanek' ? 'us-row' : '' %>">
+                  Medián <%= competitorLabels[c] || c %>
+                </th>
+              <% } %>
+            </tr>
+          </thead>
+          <tbody>
+            <% for (const b of compare) { %>
+              <tr class="<%= b.medianByCompetitor.prospanek != null ? 'us-accent' : '' %>">
+                <td class="competitor-cell"><%= b.display %></td>
+                <td class="num font-semibold"><%= b.shopCount %></td>
+                <% for (const c of competitors) {
+                     const v = b.medianByCompetitor[c];
+                     const undercut = b.undercut[c];
+                     const isUs = c === "prospanek";
+                %>
+                  <td class="num <%= isUs ? 'us-row' : '' %>" style="<%= undercut ? 'background:#fef2f2;color:#b91c1c;font-weight:600;' : '' %>">
+                    <% if (v != null) { %>
+                      <%= Math.round(v).toLocaleString("cs-CZ") %> Kč
+                    <% } else { %>
+                      <span class="text-ink-mute">—</span>
+                    <% } %>
+                  </td>
+                <% } %>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </section>
+
+  <!-- Discount by brand -->
+  <section class="card" x-data='{
+    sortKey: "salePct",
+    sortDir: "desc",
+    rows: <%- JSON.stringify(discounts) %>,
+    setSort(k) {
+      if (this.sortKey === k) { this.sortDir = this.sortDir === "asc" ? "desc" : "asc"; }
+      else { this.sortKey = k; this.sortDir = (k === "display") ? "asc" : "desc"; }
+    },
+    sortIndicator(k) { return this.sortKey === k ? (this.sortDir === "asc" ? " ↑" : " ↓") : ""; },
+    fmtPct(v) { return v == null ? "—" : Number(v).toFixed(1) + " %"; },
+    fmtNum(v) { return v == null ? "—" : Number(v).toLocaleString("cs-CZ"); },
+    get sorted() {
+      const dir = this.sortDir === "asc" ? 1 : -1;
+      const k = this.sortKey;
+      return [...this.rows].sort((a, b) => {
+        if (k === "display") return a.display.localeCompare(b.display) * dir;
+        const av = a[k], bv = b[k];
+        if (av == null && bv == null) return 0;
+        if (av == null) return 1;
+        if (bv == null) return -1;
+        return (av - bv) * dir;
+      });
+    }
+  }'>
+    <div class="card-pad border-b border-line">
+      <h3>Sleva podle značky</h3>
+      <p class="text-xs text-ink-mute mt-1">
+        Pouze značky s ≥3 produkty · „ve slevě" = sale_price &lt; regular_price nebo discount_pct &gt; 0
+      </p>
+    </div>
+
+    <% if (!discounts.length) { %>
+      <div class="empty">
+        <div class="icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+        </div>
+        <p>Žádné značky s ≥3 produkty.</p>
+      </div>
+    <% } else { %>
+      <div class="overflow-x-auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="cursor-pointer select-none" @click="setSort('display')">Producent<span x-text="sortIndicator('display')"></span></th>
+              <th class="num cursor-pointer select-none" @click="setSort('total')"># produktů<span x-text="sortIndicator('total')"></span></th>
+              <th class="num cursor-pointer select-none" @click="setSort('onSale')"># ve slevě<span x-text="sortIndicator('onSale')"></span></th>
+              <th class="num cursor-pointer select-none" @click="setSort('salePct')">% ve slevě<span x-text="sortIndicator('salePct')"></span></th>
+              <th class="num cursor-pointer select-none" @click="setSort('avgDiscount')">Průměrná sleva<span x-text="sortIndicator('avgDiscount')"></span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="r in sorted" :key="r.norm">
+              <tr>
+                <td class="competitor-cell" x-text="r.display"></td>
+                <td class="num" x-text="fmtNum(r.total)"></td>
+                <td class="num" x-text="fmtNum(r.onSale)"></td>
+                <td class="num font-semibold" x-text="fmtPct(r.salePct)"></td>
+                <td class="num" x-text="fmtPct(r.avgDiscount)"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </section>
+</main>
+
+<script>
+  (function() {
+    const BRAND = '#ef4723';
+    // A neutral-grey palette plus the brand primary, matching trends.ejs / portfolio look.
+    const PALETTE = [
+      BRAND, '#6e83bd', '#94a3b8', '#a4b3da', '#cbd5e1', '#64748b',
+      '#475569', '#c8d2eb', '#e1e7f4', '#334155', '#0e1733'
+    ];
+    const mix = <%- JSON.stringify(mix) %>;
+
+    const ctx = document.getElementById('chart-mix');
+    if (ctx && mix.rows && mix.rows.length) {
+      const labels = mix.rows.map(r => r.display);
+      const data = mix.rows.map(r => r.count);
+      const colors = labels.map((_, i) => PALETTE[i % PALETTE.length]);
+      new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [{
+            data,
+            backgroundColor: colors,
+            borderColor: '#fff',
+            borderWidth: 2,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '58%',
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: { boxWidth: 10, boxHeight: 10, font: { family: 'Inter', size: 11 }, padding: 10 },
+            },
+            tooltip: {
+              padding: 10,
+              callbacks: {
+                label: (ctx) => {
+                  const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                  const v = ctx.parsed;
+                  const pct = total ? (v / total * 100).toFixed(1) : 0;
+                  return `${ctx.label}: ${Number(v).toLocaleString('cs-CZ')} (${pct} %)`;
+                },
+              },
+            },
+          },
+        },
+      });
+    }
+  })();
+</script>
+
+<%- include("partials/footer") %>

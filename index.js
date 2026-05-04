@@ -11,6 +11,8 @@ import {
   portfolioMatrix, allProductsRanked, servicesMatrix, activePromos,
   priceHistogram, promoSummary, notableInsights, segmentHeatmap, kpis,
   lastFetchedAt, newsOfTheDay, priceTrend,
+  brandsAcrossCompetitors, brandsAtProspanek, brandPriceComparison,
+  brandDiscounts, brandKpis,
   COMPETITORS, COMPETITOR_LABELS, SIZES, SEGMENTS,
 } from "./aggregations.js";
 
@@ -103,6 +105,21 @@ app.get("/promos", async (_req, res, next) => {
       ...commonLocals(d), active: "promos", title: "Akce",
       promos: activePromos(d.promos),
       summary: promoSummary(activePromos(d.promos)),
+    });
+  } catch (err) { next(err); }
+});
+
+app.get("/producers", async (_req, res, next) => {
+  try {
+    const d = await getData();
+    const products = d.products_curated || [];
+    res.render("producers", {
+      ...commonLocals(d), active: "producers", title: "Producenti",
+      kpi: brandKpis(products),
+      mix: brandsAtProspanek(products),
+      across: brandsAcrossCompetitors(products),
+      compare: brandPriceComparison(products, "180x200"),
+      discounts: brandDiscounts(products, 3),
     });
   } catch (err) { next(err); }
 });
