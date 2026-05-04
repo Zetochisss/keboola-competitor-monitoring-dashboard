@@ -46,21 +46,36 @@
   <section class="card" x-data='{
     view: "top",
     competitor: "all",
+    producent: "all",
     availability: "all",
     rows: <%- JSON.stringify(ranked) %>,
     competitors: <%- JSON.stringify(competitors) %>,
     competitorLabels: <%- JSON.stringify(competitorLabels) %>,
     fmt(n) { return n == null ? "—" : Math.round(n).toLocaleString("cs-CZ") + " Kč"; },
+    get availableBrands() {
+      let r = this.rows;
+      if (this.competitor !== "all") r = r.filter(x => x.competitor === this.competitor);
+      const counts = new Map();
+      for (const row of r) {
+        const b = row.brand;
+        if (!b) continue;
+        counts.set(b, (counts.get(b) || 0) + 1);
+      }
+      return [...counts.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "cs"))
+        .map(([brand, n]) => ({ brand, n }));
+    },
     get filtered() {
       let r = this.rows;
       if (this.competitor !== "all") r = r.filter(x => x.competitor === this.competitor);
+      if (this.producent !== "all") r = r.filter(x => x.brand === this.producent);
       if (this.availability === "in") r = r.filter(x => x.is_available === true);
       if (this.availability === "out") r = r.filter(x => x.is_available === false);
       if (this.view === "top") return r.slice(0, 10);
       if (this.view === "bottom") return r.slice(-10).reverse();
       return r;
     }
-  }'>
+  }' x-effect="if (producent !== 'all' && !availableBrands.some(b => b.brand === producent)) producent = 'all'">
     <div class="card-pad border-b border-line">
       <h3>Procházení produktů</h3>
       <p class="text-xs text-ink-mute mt-1"><%= size === "all" ? "Všechny rozměry" : "Rozměr " + size %> · poslední aktualizace</p>
@@ -78,6 +93,19 @@
         <button class="chip" :class="competitor==='all' ? 'active' : ''" @click="competitor='all'">Vše</button>
         <template x-for="c in competitors" :key="c">
           <button class="chip" :class="competitor===c ? 'active' : ''" @click="competitor=c" x-text="competitorLabels[c] || c"></button>
+        </template>
+      </div>
+      <div class="flex items-start gap-2 flex-wrap">
+        <span class="text-xs uppercase tracking-wider text-ink-mute font-medium mr-1 mt-1">Producent</span>
+        <button class="chip" :class="producent==='all' ? 'active' : ''" @click="producent='all'">Vše</button>
+        <template x-for="b in availableBrands" :key="b.brand">
+          <button class="chip" :class="producent===b.brand ? 'active' : ''" @click="producent=b.brand">
+            <span x-text="b.brand"></span>
+            <span class="text-ink-mute ml-1" x-text="`(${b.n})`"></span>
+          </button>
+        </template>
+        <template x-if="availableBrands.length === 0">
+          <span class="text-xs text-ink-mute mt-1">Žádní producenti pro zvoleného konkurenta</span>
         </template>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
