@@ -259,8 +259,10 @@ table.data-table .competitor-cell { font-weight: 500; }
   margin-top: 0.5rem;
 }
 
-/* ---------- Chat widget ---------- */
-.chat-fab {
+/* ---------- KAI chat widget (in-app Anthropic-streaming assistant) ---------- */
+[x-cloak] { display: none !important; }
+
+.kai-fab {
   position: fixed;
   bottom: 1.25rem;
   right: 1.25rem;
@@ -272,7 +274,6 @@ table.data-table .competitor-cell { font-weight: 500; }
   color: #fff !important;
   border: none;
   cursor: pointer;
-  text-decoration: none;
   font-weight: 600;
   font-size: 0.9375rem;
   letter-spacing: 0.01em;
@@ -282,8 +283,140 @@ table.data-table .competitor-cell { font-weight: 500; }
   gap: 0.5rem;
   transition: transform .15s, box-shadow .15s, background .15s;
 }
-.chat-fab:hover { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(239, 71, 35, 0.4); background: var(--brand-dark); }
-.chat-fab .icon-ext { opacity: 0.85; }
+.kai-fab:hover { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(239, 71, 35, 0.4); background: var(--brand-dark); }
+.kai-fab.kai-fab-open { padding: 0; width: 48px; justify-content: center; }
+
+.kai-panel {
+  position: fixed;
+  bottom: 5rem;
+  right: 1.25rem;
+  z-index: 59;
+  width: 420px;
+  max-width: calc(100vw - 2.5rem);
+  height: min(640px, calc(100vh - 7rem));
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(14, 23, 51, 0.18), 0 4px 16px rgba(14, 23, 51, 0.08);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.kai-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(135deg, #fff1ec 0%, #fff 100%);
+}
+.kai-title { font-weight: 700; font-size: 1rem; color: var(--brand); letter-spacing: 0.02em; }
+.kai-subtitle { font-size: 0.6875rem; color: var(--ink-mute); margin-top: 0.0625rem; }
+.kai-mini-btn {
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink-soft);
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.kai-mini-btn:hover { background: var(--soft); color: var(--ink); }
+
+.kai-messages {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 1rem;
+  display: flex; flex-direction: column; gap: 0.75rem;
+  scroll-behavior: smooth;
+}
+.kai-empty { padding: 0.5rem 0; }
+.kai-suggest {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  background: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.kai-suggest:hover { background: #fff1ec; border-color: var(--brand); color: var(--ink); }
+
+.kai-msg { display: flex; }
+.kai-msg-user { justify-content: flex-end; }
+.kai-msg-assistant { justify-content: flex-start; }
+.kai-msg-bubble {
+  max-width: 85%;
+  padding: 0.625rem 0.875rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+.kai-msg-user .kai-msg-bubble {
+  background: var(--brand);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.kai-msg-assistant .kai-msg-bubble {
+  background: var(--soft);
+  color: var(--ink);
+  border-bottom-left-radius: 4px;
+}
+.kai-error {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.kai-input-row {
+  display: flex; align-items: flex-end; gap: 0.5rem;
+  padding: 0.625rem 0.75rem 0.5rem;
+  border-top: 1px solid var(--line);
+  background: #fff;
+}
+.kai-input {
+  flex: 1 1 auto;
+  resize: none;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-family: inherit;
+  line-height: 1.4;
+  color: var(--ink);
+  background: #fff;
+  outline: none;
+  max-height: 160px;
+  transition: border-color .15s, box-shadow .15s;
+}
+.kai-input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(239, 71, 35, 0.12); }
+.kai-input:disabled { background: var(--soft); cursor: not-allowed; }
+.kai-send {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: var(--brand);
+  color: #fff;
+  border: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background .15s;
+}
+.kai-send:hover:not(:disabled) { background: var(--brand-dark); }
+.kai-send:disabled { background: var(--ink-mute); cursor: not-allowed; opacity: 0.6; }
+.kai-foot {
+  text-align: center;
+  font-size: 0.6875rem;
+  color: var(--ink-mute);
+  padding: 0 0 0.5rem;
+}
+.kai-spin { animation: kai-spin 1s linear infinite; transform-origin: center; }
+@keyframes kai-spin { to { transform: rotate(360deg); } }
 
 .chat-panel {
   position: fixed;

@@ -1,13 +1,159 @@
-<a href="<%= locals.keboolaAiUrl || 'https://connection.us-east4.gcp.keboola.com/admin/projects/374/' %>"
-   target="_blank"
-   rel="noopener noreferrer"
-   class="chat-fab"
-   title="Open Keboola AI in a new tab">
-  <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-  </svg>
-  <span>Ask KAI</span>
-  <svg class="icon-ext" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M7 17L17 7"/><path d="M7 7h10v10"/>
-  </svg>
-</a>
+<div x-data="kaiChat()" x-cloak>
+  <button @click="toggle()" class="kai-fab" :class="open ? 'kai-fab-open' : ''" :title="open ? 'Skrýt KAI' : 'Zeptej se KAI'">
+    <template x-if="!open">
+      <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+    </template>
+    <template x-if="open">
+      <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </template>
+    <span x-show="!open">Ask KAI</span>
+  </button>
+
+  <div x-show="open" x-transition.opacity.duration.150ms class="kai-panel">
+    <div class="kai-header">
+      <div>
+        <div class="kai-title">KAI</div>
+        <div class="kai-subtitle">Asistent nad aktuálním snapshotem</div>
+      </div>
+      <button @click="reset()" class="kai-mini-btn" title="Smazat konverzaci">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
+      </button>
+    </div>
+
+    <div class="kai-messages" x-ref="scroll">
+      <template x-if="!messages.length">
+        <div class="kai-empty">
+          <p class="font-medium text-ink mb-2">Zeptej se na cokoliv ze sledované konkurence.</p>
+          <p class="text-xs text-ink-mute mb-3">Pár nápadů:</p>
+          <div class="flex flex-col gap-1.5">
+            <template x-for="s in suggestions" :key="s">
+              <button class="kai-suggest" @click="draft = s; send()" x-text="s"></button>
+            </template>
+          </div>
+        </div>
+      </template>
+      <template x-for="(m, i) in messages" :key="i">
+        <div :class="m.role === 'user' ? 'kai-msg kai-msg-user' : 'kai-msg kai-msg-assistant'">
+          <div class="kai-msg-bubble" x-text="m.content"></div>
+        </div>
+      </template>
+      <template x-if="error">
+        <div class="kai-error" x-text="error"></div>
+      </template>
+    </div>
+
+    <form class="kai-input-row" @submit.prevent="send()">
+      <textarea
+        x-model="draft"
+        x-ref="input"
+        rows="1"
+        placeholder="Napiš dotaz..."
+        :disabled="sending"
+        @keydown.enter.prevent="!$event.shiftKey && send()"
+        @input="autosize($event)"
+        class="kai-input"></textarea>
+      <button type="submit" class="kai-send" :disabled="!draft.trim() || sending" :title="sending ? 'KAI odpovídá…' : 'Odeslat (Enter)'">
+        <template x-if="!sending">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </template>
+        <template x-if="sending">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="kai-spin"><circle cx="12" cy="12" r="9" opacity="0.25"/><path d="M21 12a9 9 0 0 1-9 9"/></svg>
+        </template>
+      </button>
+    </form>
+    <div class="kai-foot">Sonnet 4.6 · stateless · model může chybovat</div>
+  </div>
+</div>
+
+<script>
+  function kaiChat() {
+    return {
+      open: false,
+      messages: [],
+      draft: "",
+      sending: false,
+      error: null,
+      suggestions: [
+        "Která konkurence má nejnižší mediánovou cenu 180×200?",
+        "U kterých producentů vede Pro Spánek v premium segmentu?",
+        "Jaké jsou nejvýraznější změny cen dnes?",
+        "Které značky prodává jen Pro Spánek a žádný konkurent?",
+      ],
+      toggle() { this.open = !this.open; if (this.open) this.$nextTick(() => this.$refs.input?.focus()); },
+      reset() { this.messages = []; this.error = null; this.draft = ""; this.$nextTick(() => this.$refs.input?.focus()); },
+      autosize(e) {
+        const el = e.target;
+        el.style.height = "auto";
+        el.style.height = Math.min(el.scrollHeight, 160) + "px";
+      },
+      scrollDown() {
+        this.$nextTick(() => {
+          const el = this.$refs.scroll;
+          if (el) el.scrollTop = el.scrollHeight;
+        });
+      },
+      async send() {
+        const text = this.draft.trim();
+        if (!text || this.sending) return;
+        this.error = null;
+        this.messages.push({ role: "user", content: text });
+        this.messages.push({ role: "assistant", content: "" });
+        this.draft = "";
+        this.$nextTick(() => { if (this.$refs.input) this.$refs.input.style.height = "auto"; });
+        this.sending = true;
+        this.scrollDown();
+        try {
+          const conversation = this.messages.slice(0, -1).map((m) => ({ role: m.role, content: m.content }));
+          const res = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ messages: conversation }),
+          });
+          if (!res.ok || !res.body) {
+            const j = await res.json().catch(() => ({}));
+            throw new Error(j.error || `HTTP ${res.status}`);
+          }
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buf = "";
+          const lastIdx = this.messages.length - 1;
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buf += decoder.decode(value, { stream: true });
+            const parts = buf.split("\n\n");
+            buf = parts.pop() || "";
+            for (const part of parts) {
+              const line = part.trim();
+              if (!line.startsWith("data: ")) continue;
+              try {
+                const ev = JSON.parse(line.slice(6));
+                if (ev.type === "delta") {
+                  this.messages[lastIdx].content += ev.text;
+                  this.scrollDown();
+                } else if (ev.type === "error") {
+                  this.error = ev.message;
+                }
+              } catch (_) { /* ignore partial frames */ }
+            }
+          }
+          if (!this.messages[lastIdx].content) {
+            this.messages.splice(lastIdx, 1);
+          }
+        } catch (e) {
+          this.error = e.message || "Chyba při komunikaci s KAI.";
+          if (this.messages[this.messages.length - 1]?.role === "assistant" && !this.messages[this.messages.length - 1].content) {
+            this.messages.pop();
+          }
+        } finally {
+          this.sending = false;
+          this.scrollDown();
+        }
+      },
+    };
+  }
+</script>

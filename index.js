@@ -15,6 +15,7 @@ import {
   brandDiscounts, brandKpis,
   COMPETITORS, COMPETITOR_LABELS, SIZES, SEGMENTS,
 } from "./aggregations.js";
+import { buildContext, streamChat } from "./kai.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.PORT || "3000", 10);
@@ -23,6 +24,7 @@ const app = express();
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.use(express.static(path.join(__dirname, "public")));
+app.use(express.json({ limit: "256kb" }));
 
 let mode = "live";
 
@@ -136,6 +138,38 @@ app.get("/trends", async (_req, res, next) => {
       trend,
     });
   } catch (err) { next(err); }
+});
+
+// In-app KAI assistant. Accepts {messages: [{role, content}, ...]}; streams
+// SSE deltas back. System prompt is rebuilt per turn from cached dashboard data
+// so the model always answers against the current snapshot.
+app.post("/api/chat", async (req, res) => {
+  try {
+    const messages = Array.isArray(req.body?.messages) ? req.body.messages : null;
+    if (!messages || !messages.length) {
+      res.status(400).json({ error: "Missing messages." });
+      return;
+    }
+    const cleaned = messages
+      .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+      .map((m) => ({ role: m.role, content: m.content.slice(0, 4000) }))
+      .slice(-12);
+    if (!cleaned.length || cleaned[cleaned.length - 1].role !== "user") {
+      res.status(400).json({ error: "Last message must be from user." });
+      return;
+    }
+    const d = await getData();
+    const context = buildContext(d);
+    await streamChat(res, cleaned, context);
+  } catch (err) {
+    console.error("[api/chat] error:", err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: err.message || "Server error." });
+    } else {
+      res.write(`data: ${JSON.stringify({ type: "error", message: err.message })}\n\n`);
+      res.end();
+    }
+  }
 });
 
 app.get("/health", (_req, res) => res.send("OK"));
