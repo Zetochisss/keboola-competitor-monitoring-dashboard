@@ -7,42 +7,85 @@
   </div>
 
   <!-- Novinky dne -->
-  <section class="card mb-6">
-    <div class="card-pad border-b border-line flex items-center justify-between flex-wrap gap-2">
-      <div>
+  <% if (!news.items || news.items.length === 0) { %>
+    <section class="card mb-6">
+      <div class="card-pad border-b border-line">
         <h3>Novinky dne</h3>
-        <p class="text-xs text-ink-mute mt-1">
-          <% if (newsDateLabel) { %>
-            Změny zjištěné <%= newsDateLabel %> oproti předchozí aktualizaci
-          <% } else { %>
-            Bude k dispozici po druhém denním běhu
-          <% } %>
-        </p>
+        <p class="text-xs text-ink-mute mt-1">Bude k dispozici po druhém denním běhu</p>
       </div>
-      <% if (news.totals) { %>
-        <div class="flex gap-2 text-xs">
-          <% if (news.totals.price > 0) { %>
-            <span class="badge scope-sitewide"><%= news.totals.price %> změn cen</span>
-          <% } %>
-          <% if (news.totals.new > 0) { %>
-            <span class="badge scope-product"><%= news.totals.new %> nových</span>
-          <% } %>
-          <% if (news.totals.removed > 0) { %>
-            <span class="badge scope-bundle"><%= news.totals.removed %> odebraných</span>
-          <% } %>
-        </div>
-      <% } %>
-    </div>
-
-    <% if (!news.items || news.items.length === 0) { %>
       <div class="empty">
         <div class="icon">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         </div>
         <p>Změny ze dne na den budou k dispozici po druhém denním běhu extraktoru.</p>
       </div>
-    <% } else { %>
-      <div class="overflow-x-auto">
+    </section>
+  <% } else { %>
+    <section class="card mb-6" x-data='{
+      competitor: "competitors",
+      direction: "all",
+      type: "all",
+      rows: <%- JSON.stringify(news.items) %>,
+      competitors: <%- JSON.stringify(competitors) %>,
+      competitorLabels: <%- JSON.stringify(competitorLabels) %>,
+      typeLabel(t) { return t === "price_changed" ? "Cena" : (t === "new_product" ? "Nový" : "Odebrán"); },
+      sevClass(s) { return s === "high" ? "badge-no" : (s === "medium" ? "badge-num" : "badge-yes"); },
+      fmt(n) { return n == null ? "—" : Math.round(Number(n)).toLocaleString("cs-CZ") + " Kč"; },
+      get filtered() {
+        return this.rows.filter(e => {
+          if (this.competitor === "competitors" && e.competitor === "prospanek") return false;
+          if (this.competitor === "prospanek" && e.competitor !== "prospanek") return false;
+          if (this.competitor !== "all" && this.competitor !== "competitors" && this.competitor !== "prospanek" && e.competitor !== this.competitor) return false;
+          if (this.type !== "all" && e.event_type !== this.type) return false;
+          if (this.direction === "up" && !(e.pct_change != null && Number(e.pct_change) > 0)) return false;
+          if (this.direction === "down" && !(e.pct_change != null && Number(e.pct_change) < 0)) return false;
+          return true;
+        });
+      }
+    }'>
+      <div class="card-pad border-b border-line flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h3>Novinky dne</h3>
+          <p class="text-xs text-ink-mute mt-1">
+            <% if (newsDateLabel) { %>Změny zjištěné <%= newsDateLabel %> oproti předchozí aktualizaci<% } %>
+          </p>
+        </div>
+        <div class="flex gap-2 text-xs">
+          <% if (news.totals.price > 0) { %><span class="badge scope-sitewide"><%= news.totals.price %> změn cen</span><% } %>
+          <% if (news.totals.new > 0) { %><span class="badge scope-product"><%= news.totals.new %> nových</span><% } %>
+          <% if (news.totals.removed > 0) { %><span class="badge scope-bundle"><%= news.totals.removed %> odebraných</span><% } %>
+        </div>
+      </div>
+
+      <div class="card-pad border-b border-line space-y-3">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-xs uppercase tracking-wider text-ink-mute font-medium mr-1">Konkurent</span>
+          <button class="chip" :class="competitor==='competitors' ? 'active' : ''" @click="competitor='competitors'">Pouze konkurence</button>
+          <button class="chip" :class="competitor==='all' ? 'active' : ''" @click="competitor='all'">Vše vč. Pro Spánku</button>
+          <button class="chip" :class="competitor==='prospanek' ? 'active' : ''" @click="competitor='prospanek'">Pouze Pro Spánek</button>
+          <span class="text-ink-mute mx-1">|</span>
+          <template x-for="c in competitors.filter(x => x !== 'prospanek')" :key="c">
+            <button class="chip" :class="competitor===c ? 'active' : ''" @click="competitor=c" x-text="competitorLabels[c] || c"></button>
+          </template>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-xs uppercase tracking-wider text-ink-mute font-medium mr-1">Typ změny</span>
+          <button class="chip" :class="type==='all' ? 'active' : ''" @click="type='all'">Vše</button>
+          <button class="chip" :class="type==='price_changed' ? 'active' : ''" @click="type='price_changed'">Změny cen</button>
+          <button class="chip" :class="type==='new_product' ? 'active' : ''" @click="type='new_product'">Nové produkty</button>
+          <button class="chip" :class="type==='removed_product' ? 'active' : ''" @click="type='removed_product'">Odebrané</button>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-xs uppercase tracking-wider text-ink-mute font-medium mr-1">Směr ceny</span>
+          <button class="chip" :class="direction==='all' ? 'active' : ''" @click="direction='all'">Vše</button>
+          <button class="chip" :class="direction==='up' ? 'active' : ''" @click="direction='up'">↑ Zdražení</button>
+          <button class="chip" :class="direction==='down' ? 'active' : ''" @click="direction='down'">↓ Zlevnění</button>
+        </div>
+      </div>
+
+      <div class="card-pad text-xs text-ink-mute" x-text="`Zobrazeno ${filtered.length} z ${rows.length} změn`"></div>
+
+      <div class="overflow-x-auto" style="max-height: 600px; overflow-y: auto;">
         <table class="data-table">
           <thead>
             <tr>
@@ -56,37 +99,40 @@
             </tr>
           </thead>
           <tbody>
-            <% for (const e of news.items) {
-                 const sevClass = e.severity === 'high' ? 'badge-no' : (e.severity === 'medium' ? 'badge-num' : 'badge-yes');
-                 const typeLabel = e.event_type === 'price_changed' ? 'Cena' : (e.event_type === 'new_product' ? 'Nový' : 'Odebrán');
-            %>
-              <tr class="<%= e.competitor === 'prospanek' ? 'us-accent' : '' %>">
-                <td><span class="badge <%= sevClass %>"><%= typeLabel %></span></td>
-                <td class="competitor-cell"><%= competitorLabels[e.competitor] || e.competitor %></td>
+            <template x-for="e in filtered" :key="e.competitor + '::' + e.source_url + '::' + e.size + '::' + e.event_type">
+              <tr :class="e.competitor === 'prospanek' ? 'us-accent' : ''">
+                <td><span class="badge" :class="sevClass(e.severity)" x-text="typeLabel(e.event_type)"></span></td>
+                <td class="competitor-cell" x-text="competitorLabels[e.competitor] || e.competitor"></td>
                 <td>
-                  <% if (e.source_url) { %>
-                    <a href="<%= e.source_url %>" target="_blank" rel="noopener" class="font-medium"><%= e.name || "(bez názvu)" %></a>
-                  <% } else { %>
-                    <span class="font-medium"><%= e.name || "(bez názvu)" %></span>
-                  <% } %>
+                  <template x-if="e.source_url">
+                    <a :href="e.source_url" target="_blank" rel="noopener" class="font-medium" x-text="e.name || '(bez názvu)'"></a>
+                  </template>
+                  <template x-if="!e.source_url">
+                    <span class="font-medium" x-text="e.name || '(bez názvu)'"></span>
+                  </template>
                 </td>
-                <td class="text-ink-soft"><%= e.size %></td>
-                <td class="num text-ink-mute"><%= e.old_value ? Math.round(Number(e.old_value)).toLocaleString("cs-CZ") + ' Kč' : '—' %></td>
-                <td class="num font-semibold"><%= e.new_value ? Math.round(Number(e.new_value)).toLocaleString("cs-CZ") + ' Kč' : '—' %></td>
+                <td class="text-ink-soft" x-text="e.size"></td>
+                <td class="num text-ink-mute" x-text="fmt(e.old_value)"></td>
+                <td class="num font-semibold" x-text="fmt(e.new_value)"></td>
                 <td class="num">
-                  <% if (e.pct_change != null) { %>
-                    <span class="<%= Number(e.pct_change) < 0 ? 'text-brand font-semibold' : 'text-ink' %>">
-                      <%= Number(e.pct_change) > 0 ? '+' : '' %><%= Number(e.pct_change).toLocaleString("cs-CZ") %> %
-                    </span>
-                  <% } else { %><span class="text-ink-mute">—</span><% } %>
+                  <template x-if="e.pct_change != null">
+                    <span :class="Number(e.pct_change) < 0 ? 'text-brand font-semibold' : 'text-ink'"
+                          x-text="(Number(e.pct_change) > 0 ? '+' : '') + Number(e.pct_change).toLocaleString('cs-CZ') + ' %'"></span>
+                  </template>
+                  <template x-if="e.pct_change == null">
+                    <span class="text-ink-mute">—</span>
+                  </template>
                 </td>
               </tr>
-            <% } %>
+            </template>
+            <template x-if="filtered.length === 0">
+              <tr><td colspan="7" class="text-center text-ink-mute py-6">Žádné změny neodpovídají zvoleným filtrům.</td></tr>
+            </template>
           </tbody>
         </table>
       </div>
-    <% } %>
-  </section>
+    </section>
+  <% } %>
 
   <!-- Vývoj cen v čase -->
   <section class="card">

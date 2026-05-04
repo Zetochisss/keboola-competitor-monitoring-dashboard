@@ -70,18 +70,28 @@ export function portfolioMatrix(products, size) {
   return { matrix, totals };
 }
 
-export function topExpensivePerCompetitor(products, size, n = 10) {
+// All products in latest snapshot, sorted desc by effective price.
+// Client-side filtering picks top N / bottom N / all, plus competitor + availability.
+export function allProductsRanked(products, size) {
   const latest = applySize(latestPerProduct(products), size);
-  const out = {};
-  for (const c of COMPETITORS) {
-    out[c] = latest
-      .filter((r) => r.competitor === c)
-      .map((r) => ({ ...r, _price: num(r.effective_price_czk) }))
-      .filter((r) => r._price != null)
-      .sort((a, b) => b._price - a._price)
-      .slice(0, n);
-  }
-  return out;
+  return latest
+    .map((r) => ({
+      competitor: r.competitor,
+      source_url: r.source_url,
+      size: r.size,
+      name: r.name || "",
+      subcategory: r.subcategory || "",
+      brand: r.brand || "",
+      price: num(r.effective_price_czk),
+      is_available: (() => {
+        const v = r.is_available;
+        if (v === true || v === "true") return true;
+        if (v === false || v === "false") return false;
+        return null;
+      })(),
+    }))
+    .filter((r) => r.price != null)
+    .sort((a, b) => b.price - a.price);
 }
 
 // Histogram bins of effective price per competitor. 2 500 Kč bins up to 60 000.
@@ -247,32 +257,43 @@ export function lastFetchedAt(rows) {
   return latest;
 }
 
-// Latest day of events, prioritized by severity. Used by the Trends "Novinky dne" feed.
-// On day 1 (CSV bootstrap + first extractor run), the new_product / removed_product
-// events are mostly noise from non-paired snapshots; we surface price_changed first
-// and cap new/removed at 5 each so the feed stays readable.
-export function newsOfTheDay(events, opts = {}) {
-  const max = opts.max ?? 30;
+// Latest day of events, ordered by severity within each type. Returns the full
+// list (no capping) so client-side filters (competitor, direction) operate on
+// the complete day's data. Severity-rank means high-impact rows surface first
+// when no filter is applied.
+export function newsOfTheDay(events) {
   const sevRank = { high: 1, medium: 2, low: 3 };
-  if (!events.length) return { date: null, items: [] };
+  const typeRank = { price_changed: 1, removed_product: 2, new_product: 3 };
+  if (!events.length) return { date: null, items: [], totals: {} };
 
   const latest = events.reduce((acc, e) => {
     const d = dateStr(e.event_date);
     return d && (!acc || d > acc) ? d : acc;
   }, null);
 
-  const todayEvents = events.filter((e) => dateStr(e.event_date) === latest);
-  const priceEvents = todayEvents.filter((e) => e.event_type === "price_changed")
-    .sort((a, b) => (sevRank[a.severity] ?? 9) - (sevRank[b.severity] ?? 9));
-  const newEvents = todayEvents.filter((e) => e.event_type === "new_product").slice(0, 5);
-  const removedEvents = todayEvents.filter((e) => e.event_type === "removed_product").slice(0, 5);
+  const todayEvents = events
+    .filter((e) => dateStr(e.event_date) === latest)
+    .map((e) => ({
+      ...e,
+      pct_change: e.pct_change == null || e.pct_change === "" ? null : num(e.pct_change),
+      old_value: e.old_value == null || e.old_value === "" ? null : num(e.old_value),
+      new_value: e.new_value == null || e.new_value === "" ? null : num(e.new_value),
+    }))
+    .sort((a, b) => {
+      const t = (typeRank[a.event_type] ?? 9) - (typeRank[b.event_type] ?? 9);
+      if (t !== 0) return t;
+      return (sevRank[a.severity] ?? 9) - (sevRank[b.severity] ?? 9);
+    });
 
-  const items = [...priceEvents, ...newEvents, ...removedEvents].slice(0, max);
-  return { date: latest, items, totals: {
-    price: priceEvents.length,
-    new: todayEvents.filter((e) => e.event_type === "new_product").length,
-    removed: todayEvents.filter((e) => e.event_type === "removed_product").length,
-  }};
+  return {
+    date: latest,
+    items: todayEvents,
+    totals: {
+      price: todayEvents.filter((e) => e.event_type === "price_changed").length,
+      new: todayEvents.filter((e) => e.event_type === "new_product").length,
+      removed: todayEvents.filter((e) => e.event_type === "removed_product").length,
+    },
+  };
 }
 
 // Median effective price per (fetched_at_date, competitor) for a given size.

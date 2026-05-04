@@ -43,12 +43,58 @@
   <% } else {
        const today = new Date();
        const soonCutoff = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+       const scopes = [...new Set(promos.map(p => p.scope).filter(Boolean))];
+       const promosForJs = promos.map(p => ({
+         competitor: p.competitor,
+         scope: p.scope || null,
+         discount_pct: p.discount_pct || null,
+         free_shipping_threshold_czk: p.free_shipping_threshold_czk || null,
+         promo_code: p.promo_code || null,
+         promo_text: p.promo_text || "",
+         promo_quote: p.promo_quote || null,
+         source_url: p.source_url || null,
+         ends_at: p.ends_at ? String(p.ends_at).slice(0, 10) : null,
+         ending_soon: !!(p.ends_at && String(p.ends_at).slice(0, 10) <= soonCutoff),
+       }));
   %>
-    <section class="card overflow-hidden">
-      <div class="card-pad border-b border-line flex items-center justify-between">
+    <section class="card overflow-hidden" x-data='{
+      competitor: "all",
+      scope: "all",
+      rows: <%- JSON.stringify(promosForJs) %>,
+      competitors: <%- JSON.stringify(competitors) %>,
+      competitorLabels: <%- JSON.stringify(competitorLabels) %>,
+      scopes: <%- JSON.stringify(scopes) %>,
+      get filtered() {
+        return this.rows.filter(p =>
+          (this.competitor === "all" || p.competitor === this.competitor) &&
+          (this.scope === "all" || p.scope === this.scope)
+        );
+      }
+    }'>
+      <div class="card-pad border-b border-line flex items-center justify-between flex-wrap gap-2">
         <h3>Všechny aktivní akce</h3>
         <div class="text-xs text-ink-mute">Akce končící do 7 dnů jsou zvýrazněny</div>
       </div>
+
+      <div class="card-pad border-b border-line space-y-3">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-xs uppercase tracking-wider text-ink-mute font-medium mr-1">Konkurent</span>
+          <button class="chip" :class="competitor==='all' ? 'active' : ''" @click="competitor='all'">Vše</button>
+          <template x-for="c in competitors" :key="c">
+            <button class="chip" :class="competitor===c ? 'active' : ''" @click="competitor=c" x-text="competitorLabels[c] || c"></button>
+          </template>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-xs uppercase tracking-wider text-ink-mute font-medium mr-1">Rozsah akce</span>
+          <button class="chip" :class="scope==='all' ? 'active' : ''" @click="scope='all'">Vše</button>
+          <template x-for="s in scopes" :key="s">
+            <button class="chip" :class="scope===s ? 'active' : ''" @click="scope=s" x-text="s"></button>
+          </template>
+        </div>
+      </div>
+
+      <div class="card-pad text-xs text-ink-mute" x-text="`Zobrazeno ${filtered.length} z ${rows.length} akcí`"></div>
+
       <div class="overflow-x-auto">
         <table class="data-table">
           <thead>
@@ -63,36 +109,37 @@
             </tr>
           </thead>
           <tbody>
-            <% for (const p of promos) {
-                 const ends = p.ends_at ? String(p.ends_at).slice(0, 10) : null;
-                 const endingSoon = ends && ends <= soonCutoff;
-            %>
-              <tr class="<%= p.competitor === 'prospanek' ? 'us-accent' : '' %> <%= endingSoon ? 'bg-brand-soft/40' : '' %>">
-                <td class="competitor-cell"><%= competitorLabels[p.competitor] || p.competitor %></td>
-                <td><span class="badge scope-<%= p.scope || 'product' %>"><%= p.scope || '—' %></span></td>
-                <td class="num"><%= p.discount_pct ? p.discount_pct + '%' : '—' %></td>
-                <td class="num"><%= p.free_shipping_threshold_czk ? Number(p.free_shipping_threshold_czk).toLocaleString("cs-CZ") + ' Kč' : '—' %></td>
-                <td class="font-mono text-xs"><%= p.promo_code || '—' %></td>
+            <template x-for="p in filtered" :key="p.competitor + '::' + p.promo_text">
+              <tr :class="(p.competitor === 'prospanek' ? 'us-accent ' : '') + (p.ending_soon ? 'bg-brand-soft/40' : '')">
+                <td class="competitor-cell" x-text="competitorLabels[p.competitor] || p.competitor"></td>
+                <td><span class="badge" :class="'scope-' + (p.scope || 'product')" x-text="p.scope || '—'"></span></td>
+                <td class="num" x-text="p.discount_pct ? p.discount_pct + '%' : '—'"></td>
+                <td class="num" x-text="p.free_shipping_threshold_czk ? Number(p.free_shipping_threshold_czk).toLocaleString('cs-CZ') + ' Kč' : '—'"></td>
+                <td class="font-mono text-xs" x-text="p.promo_code || '—'"></td>
                 <td>
-                  <% if (ends) { %>
-                    <span class="<%= endingSoon ? 'text-brand font-semibold' : 'text-ink-soft' %>"><%= ends %></span>
-                  <% } else { %>
+                  <template x-if="p.ends_at">
+                    <span :class="p.ending_soon ? 'text-brand font-semibold' : 'text-ink-soft'" x-text="p.ends_at"></span>
+                  </template>
+                  <template x-if="!p.ends_at">
                     <span class="text-ink-mute">trvá</span>
-                  <% } %>
+                  </template>
                 </td>
                 <td class="max-w-md">
-                  <% if (p.source_url) { %>
-                    <a href="<%= p.source_url %>" target="_blank" rel="noopener" class="text-ink hover:text-brand"
-                       <% if (p.promo_quote) { %>title="<%= String(p.promo_quote).replace(/"/g, '&quot;') %>"<% } %>>
-                      <%= p.promo_text %>
+                  <template x-if="p.source_url">
+                    <a :href="p.source_url" target="_blank" rel="noopener" class="text-ink hover:text-brand" :title="p.promo_quote || ''">
+                      <span x-text="p.promo_text"></span>
                       <span class="text-ink-mute ml-1">↗</span>
                     </a>
-                  <% } else { %>
-                    <span <% if (p.promo_quote) { %>title="<%= String(p.promo_quote).replace(/"/g, '&quot;') %>"<% } %>><%= p.promo_text %></span>
-                  <% } %>
+                  </template>
+                  <template x-if="!p.source_url">
+                    <span :title="p.promo_quote || ''" x-text="p.promo_text"></span>
+                  </template>
                 </td>
               </tr>
-            <% } %>
+            </template>
+            <template x-if="filtered.length === 0">
+              <tr><td colspan="7" class="text-center text-ink-mute py-6">Žádné akce neodpovídají zvoleným filtrům.</td></tr>
+            </template>
           </tbody>
         </table>
       </div>

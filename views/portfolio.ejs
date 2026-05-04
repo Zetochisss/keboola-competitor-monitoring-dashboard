@@ -42,55 +42,102 @@
     </div>
   </section>
 
-  <!-- Top expensive -->
-  <section class="card" x-data="{ tab: 'prospanek' }">
+  <!-- Browseable product list -->
+  <section class="card" x-data='{
+    view: "top",
+    competitor: "all",
+    availability: "all",
+    rows: <%- JSON.stringify(ranked) %>,
+    competitors: <%- JSON.stringify(competitors) %>,
+    competitorLabels: <%- JSON.stringify(competitorLabels) %>,
+    fmt(n) { return n == null ? "—" : Math.round(n).toLocaleString("cs-CZ") + " Kč"; },
+    get filtered() {
+      let r = this.rows;
+      if (this.competitor !== "all") r = r.filter(x => x.competitor === this.competitor);
+      if (this.availability === "in") r = r.filter(x => x.is_available === true);
+      if (this.availability === "out") r = r.filter(x => x.is_available === false);
+      if (this.view === "top") return r.slice(0, 10);
+      if (this.view === "bottom") return r.slice(-10).reverse();
+      return r;
+    }
+  }'>
     <div class="card-pad border-b border-line">
-      <h3>Top 10 nejdražších produktů</h3>
-      <p class="text-xs text-ink-mute mt-1"><%= size === "all" ? "Všechny rozměry" : "Rozměr " + size %></p>
+      <h3>Procházení produktů</h3>
+      <p class="text-xs text-ink-mute mt-1"><%= size === "all" ? "Všechny rozměry" : "Rozměr " + size %> · poslední aktualizace</p>
     </div>
-    <div class="px-6 pt-2">
-      <div class="tablist">
-        <% for (const c of competitors) { %>
-          <button class="tab" :class="tab === '<%= c %>' ? 'active' : ''" @click="tab = '<%= c %>'"><%= competitorLabels[c] || c %></button>
-        <% } %>
+
+    <div class="card-pad border-b border-line space-y-3">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-xs uppercase tracking-wider text-ink-mute font-medium mr-1">Pohled</span>
+        <button class="chip" :class="view==='top' ? 'active' : ''" @click="view='top'">Top 10 nejdražších</button>
+        <button class="chip" :class="view==='all' ? 'active' : ''" @click="view='all'">Všechny produkty</button>
+        <button class="chip" :class="view==='bottom' ? 'active' : ''" @click="view='bottom'">10 nejlevnějších</button>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-xs uppercase tracking-wider text-ink-mute font-medium mr-1">Konkurent</span>
+        <button class="chip" :class="competitor==='all' ? 'active' : ''" @click="competitor='all'">Vše</button>
+        <template x-for="c in competitors" :key="c">
+          <button class="chip" :class="competitor===c ? 'active' : ''" @click="competitor=c" x-text="competitorLabels[c] || c"></button>
+        </template>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-xs uppercase tracking-wider text-ink-mute font-medium mr-1">Dostupnost</span>
+        <button class="chip" :class="availability==='all' ? 'active' : ''" @click="availability='all'">Vše</button>
+        <button class="chip" :class="availability==='in' ? 'active' : ''" @click="availability='in'">Skladem</button>
+        <button class="chip" :class="availability==='out' ? 'active' : ''" @click="availability='out'">Nedostupné</button>
       </div>
     </div>
-    <% for (const c of competitors) { %>
-      <div x-show="tab === '<%= c %>'" x-cloak>
-        <% if (!top[c] || top[c].length === 0) { %>
-          <div class="empty"><p>Pro tohoto konkurenta zatím nejsou sledovány žádné produkty.</p></div>
-        <% } else { %>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th class="w-10">#</th>
-                <th>Produkt</th>
-                <th>Rozměr</th>
-                <th>Podkategorie</th>
-                <th class="num">Cena</th>
-              </tr>
-            </thead>
-            <tbody>
-              <% top[c].forEach((p, idx) => { %>
-                <tr class="<%= c === 'prospanek' ? 'us-accent' : '' %>">
-                  <td class="text-ink-mute"><%= idx + 1 %></td>
-                  <td>
-                    <% if (p.source_url) { %>
-                      <a href="<%= p.source_url %>" target="_blank" rel="noopener" class="font-medium"><%= p.name || "(bez názvu)" %></a>
-                    <% } else { %>
-                      <span class="font-medium"><%= p.name || "(bez názvu)" %></span>
-                    <% } %>
-                  </td>
-                  <td class="text-ink-soft"><%= p.size %></td>
-                  <td class="text-ink-soft"><%= p.subcategory || "—" %></td>
-                  <td class="num font-semibold"><%= Math.round(p._price).toLocaleString("cs-CZ") %> Kč</td>
-                </tr>
-              <% }); %>
-            </tbody>
-          </table>
-        <% } %>
-      </div>
-    <% } %>
+
+    <div class="card-pad text-xs text-ink-mute" x-text="`Zobrazeno ${filtered.length} ${filtered.length === 1 ? 'produkt' : (filtered.length >= 2 && filtered.length <= 4 ? 'produkty' : 'produktů')}`"></div>
+
+    <div class="overflow-x-auto" style="max-height: 600px; overflow-y: auto;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th class="w-10">#</th>
+            <th>Produkt</th>
+            <th>Konkurent</th>
+            <th>Rozměr</th>
+            <th>Podkategorie</th>
+            <th>Dostupnost</th>
+            <th class="num">Cena</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="(p, idx) in filtered" :key="p.competitor + '::' + p.source_url + '::' + p.size">
+            <tr :class="p.competitor === 'prospanek' ? 'us-accent' : ''">
+              <td class="text-ink-mute" x-text="idx + 1"></td>
+              <td>
+                <template x-if="p.source_url">
+                  <a :href="p.source_url" target="_blank" rel="noopener" class="font-medium" x-text="p.name || '(bez názvu)'"></a>
+                </template>
+                <template x-if="!p.source_url">
+                  <span class="font-medium" x-text="p.name || '(bez názvu)'"></span>
+                </template>
+              </td>
+              <td class="competitor-cell" x-text="competitorLabels[p.competitor] || p.competitor"></td>
+              <td class="text-ink-soft" x-text="p.size"></td>
+              <td class="text-ink-soft" x-text="p.subcategory || '—'"></td>
+              <td>
+                <template x-if="p.is_available === true">
+                  <span class="badge badge-yes">Skladem</span>
+                </template>
+                <template x-if="p.is_available === false">
+                  <span class="badge badge-no">Nedostupné</span>
+                </template>
+                <template x-if="p.is_available == null">
+                  <span class="text-ink-mute">—</span>
+                </template>
+              </td>
+              <td class="num font-semibold" x-text="fmt(p.price)"></td>
+            </tr>
+          </template>
+          <template x-if="filtered.length === 0">
+            <tr><td colspan="7" class="text-center text-ink-mute py-6">Žádné produkty neodpovídají zvoleným filtrům.</td></tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
   </section>
 </main>
 

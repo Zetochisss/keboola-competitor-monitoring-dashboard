@@ -8,7 +8,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as data from "./data.js";
 import {
-  portfolioMatrix, topExpensivePerCompetitor, servicesMatrix, activePromos,
+  portfolioMatrix, allProductsRanked, servicesMatrix, activePromos,
   priceHistogram, promoSummary, notableInsights, segmentHeatmap, kpis,
   lastFetchedAt, newsOfTheDay, priceTrend,
   COMPETITORS, COMPETITOR_LABELS, SIZES, SEGMENTS,
@@ -77,11 +77,11 @@ app.get("/portfolio", async (req, res, next) => {
     const size = (req.query.size || "all").toString();
     const d = await getData();
     const { matrix, totals } = portfolioMatrix(d.products_curated, size);
-    const top = topExpensivePerCompetitor(d.products_curated, size, 10);
+    const ranked = allProductsRanked(d.products_curated, size);
     const hist = priceHistogram(d.products_curated, size);
     res.render("portfolio", {
       ...commonLocals(d), active: "portfolio", title: "Sortiment",
-      size, matrix, totals, top, hist,
+      size, matrix, totals, ranked, hist,
     });
   } catch (err) { next(err); }
 });
