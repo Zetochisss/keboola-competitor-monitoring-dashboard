@@ -4,9 +4,39 @@
 // (curation deferred until extraction quality improves).
 
 import express from "express";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as data from "./data.js";
+
+// Keboola Data App config bootstrap. The Custom Python component pattern
+// (`CommonInterface()` + `os.environ[...] = params["#anthropic_api_key"]`)
+// has no JS equivalent, so we read /data/config.json directly. Keboola
+// decrypts encrypted (`#`-prefixed) parameters before writing this file.
+// Falls through silently when the file isn't there (local dev).
+function bootstrapKbcSecrets() {
+  const candidates = [
+    process.env.KBC_DATADIR ? `${process.env.KBC_DATADIR}/config.json` : null,
+    "/data/config.json",
+  ].filter(Boolean);
+  for (const p of candidates) {
+    try {
+      if (!fs.existsSync(p)) continue;
+      const cfg = JSON.parse(fs.readFileSync(p, "utf-8"));
+      const params = cfg?.parameters || {};
+      const key = params["#anthropic_api_key"] ?? params.anthropic_api_key;
+      if (key && !process.env.ANTHROPIC_API_KEY) {
+        process.env.ANTHROPIC_API_KEY = String(key);
+        console.log(`[bootstrap] ANTHROPIC_API_KEY loaded from ${p}`);
+      }
+      return;
+    } catch (e) {
+      console.warn(`[bootstrap] could not read ${p}:`, e.message);
+    }
+  }
+  console.log("[bootstrap] no Keboola config.json found; relying on existing env vars");
+}
+bootstrapKbcSecrets();
 import {
   portfolioMatrix, allProductsRanked, servicesMatrix, activePromos,
   priceHistogram, promoSummary, notableInsights, segmentHeatmap, kpis,
