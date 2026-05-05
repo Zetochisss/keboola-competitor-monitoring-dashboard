@@ -2,12 +2,23 @@
 // Prices are already numeric (effective_price_czk) and bucketed (price_band)
 // in out.c-competitor-monitoring.products_curated, so JS-side parsing is gone.
 
-export const COMPETITORS = ["dreamlux", "matracezahubicku", "mpo_matrace", "prospanek"];
+export const COMPETITORS = [
+  "dreamlux",
+  "matracezahubicku",
+  "mpo_matrace",
+  "prospanek",
+  "i_matrace",
+  "jysk",
+  "dormeo",
+];
 export const COMPETITOR_LABELS = {
   dreamlux: "Dreamlux",
   matracezahubicku: "Matrace za hubičku",
   mpo_matrace: "MPO Matrace",
   prospanek: "Pro Spánek",
+  i_matrace: "i-Matrace",
+  jysk: "JYSK",
+  dormeo: "Dormeo",
 };
 export const SIZES = ["90x200", "160x200", "180x200"];
 
